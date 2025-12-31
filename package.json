@@ -1,10 +1,10 @@
 {
-  "name": "electron-app",
+  "name": "furmusic",
   "version": "1.0.0",
-  "description": "An Electron application with Vue and TypeScript",
+  "description": "极简网易云第三方播放器",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "furry.luxe",
+  "homepage": "https://github.com/LangYa466/FurMusic",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts,.vue --fix",
