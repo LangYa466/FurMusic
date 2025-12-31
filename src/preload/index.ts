@@ -16,7 +16,9 @@ const api = {
     ipcRenderer.invoke('set-auto-launch', enable) as Promise<boolean>,
   // 持久化存储
   storeGet: (name: string) => ipcRenderer.invoke('store-get', name),
-  storeSet: (name: string, data: unknown) => ipcRenderer.invoke('store-set', name, data)
+  storeSet: (name: string, data: unknown) => ipcRenderer.invoke('store-set', name, data),
+  // 代理设置
+  setProxy: (proxyUrl: string | null) => ipcRenderer.invoke('set-proxy', proxyUrl)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

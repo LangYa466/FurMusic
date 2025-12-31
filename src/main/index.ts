@@ -4,15 +4,16 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import icon from '../../resources/icon.png?asset'
 
-const LOCAL_VERSION = '1.0.0'
+const LOCAL_VERSION = '1.0.1'
 const VERSION_URL =
   'https://raw.githubusercontent.com/LangYa466/FurMusic/refs/heads/master/version.txt'
-const RELEASES_URL = 'https://github.com/LangYa466/FurMusic/releases'
+const RELEASES_URL = 'https://github.com/LangYa466/FurMusic/releases/latest'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let isQuitting = false
 let apiServer: { close: () => void } | null = null
+let currentProxy: string | null = null
 
 // 持久化数据存储路径
 const getStorePath = (name: string): string => {
@@ -91,6 +92,16 @@ function checkForUpdates(): void {
 
 function startApiServer(): void {
   try {
+    // 设置代理环境变量（NeteaseCloudMusicApi 通过环境变量读取代理）
+    if (currentProxy) {
+      process.env.HTTP_PROXY = currentProxy
+      process.env.HTTPS_PROXY = currentProxy
+      console.log('Using proxy:', currentProxy)
+    } else {
+      delete process.env.HTTP_PROXY
+      delete process.env.HTTPS_PROXY
+    }
+
     // 直接在主进程中启动 API 服务器
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { serveNcmApi } = require('NeteaseCloudMusicApi')
@@ -108,6 +119,14 @@ function startApiServer(): void {
   } catch (error) {
     console.error('Failed to start API server:', error)
   }
+}
+
+function restartApiServer(): void {
+  if (apiServer) {
+    apiServer.close()
+    apiServer = null
+  }
+  startApiServer()
 }
 
 function createWindow(): void {
@@ -215,6 +234,23 @@ app.whenReady().then(() => {
     saveStore(name, data)
     return true
   })
+
+  // 代理设置 IPC
+  ipcMain.handle('set-proxy', (_, proxyUrl: string | null) => {
+    currentProxy = proxyUrl
+    restartApiServer()
+    return true
+  })
+
+  // 加载保存的代理设置
+  const savedSettings = loadStore('settings') as {
+    proxyEnabled?: boolean
+    proxyHost?: string
+    proxyPort?: string
+  } | null
+  if (savedSettings?.proxyEnabled && savedSettings.proxyHost && savedSettings.proxyPort) {
+    currentProxy = `http://${savedSettings.proxyHost}:${savedSettings.proxyPort}`
+  }
 
   startApiServer()
   createWindow()

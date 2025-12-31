@@ -13,6 +13,7 @@ declare global {
       setAutoLaunch: (enable: boolean) => Promise<boolean>
       storeGet: (name: string) => Promise<unknown>
       storeSet: (name: string, data: unknown) => Promise<boolean>
+      setProxy: (proxyUrl: string | null) => Promise<boolean>
     }
   }
 }

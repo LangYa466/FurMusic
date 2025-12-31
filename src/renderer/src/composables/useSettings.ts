@@ -14,6 +14,9 @@ const lyricsTextSize = ref(defaultSettings.lyricsTextSize)
 const lyricsCoverRound = ref(defaultSettings.lyricsCoverRound)
 const lyricsCoverRotate = ref(defaultSettings.lyricsCoverRotate)
 const volume = ref(defaultSettings.volume)
+const proxyEnabled = ref(defaultSettings.proxyEnabled)
+const proxyHost = ref(defaultSettings.proxyHost)
+const proxyPort = ref(defaultSettings.proxyPort)
 
 export function useSettings() {
   const saveSettings = async () => {
@@ -29,7 +32,10 @@ export function useSettings() {
       lyricsTextSize: lyricsTextSize.value,
       lyricsCoverRound: lyricsCoverRound.value,
       lyricsCoverRotate: lyricsCoverRotate.value,
-      volume: volume.value
+      volume: volume.value,
+      proxyEnabled: proxyEnabled.value,
+      proxyHost: proxyHost.value,
+      proxyPort: proxyPort.value
     }
     await window.api.storeSet('settings', settings)
   }
@@ -49,6 +55,9 @@ export function useSettings() {
       lyricsCoverRound.value = saved.lyricsCoverRound ?? defaultSettings.lyricsCoverRound
       lyricsCoverRotate.value = saved.lyricsCoverRotate ?? defaultSettings.lyricsCoverRotate
       volume.value = saved.volume ?? defaultSettings.volume
+      proxyEnabled.value = saved.proxyEnabled ?? defaultSettings.proxyEnabled
+      proxyHost.value = saved.proxyHost || defaultSettings.proxyHost
+      proxyPort.value = saved.proxyPort || defaultSettings.proxyPort
     }
   }
 
@@ -74,6 +83,9 @@ export function useSettings() {
     lyricsCoverRound,
     lyricsCoverRotate,
     volume,
+    proxyEnabled,
+    proxyHost,
+    proxyPort,
     saveSettings,
     loadSettings,
     saveLastPlaying,

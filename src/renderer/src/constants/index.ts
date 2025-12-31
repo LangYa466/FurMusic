@@ -38,5 +38,8 @@ export const defaultSettings = {
   lyricsTextSize: 24,
   lyricsCoverRound: false,
   lyricsCoverRotate: false,
-  volume: 0.8
+  volume: 0.8,
+  proxyEnabled: false,
+  proxyHost: '127.0.0.1',
+  proxyPort: '7890'
 }

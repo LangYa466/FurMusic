@@ -49,6 +49,9 @@ export interface Settings {
   lyricsCoverRound: boolean
   lyricsCoverRotate: boolean
   volume: number
+  proxyEnabled: boolean
+  proxyHost: string
+  proxyPort: string
 }
 
 export interface LastPlaying {

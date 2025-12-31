@@ -263,3 +263,26 @@
   background: var(--theme-color);
   color: #fff;
 }
+
+
+/* 代理输入框 */
+.proxy-input {
+  width: 140px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.proxy-input:focus {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  outline: none;
+}
+
+.proxy-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}

@@ -1,6 +1,6 @@
 {
   "name": "furmusic",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "极简网易云第三方播放器",
   "main": "./out/main/index.js",
   "author": "furry.luxe",

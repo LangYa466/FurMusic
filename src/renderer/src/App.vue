@@ -178,6 +178,34 @@
             </div>
           </div>
           <div class="settings-group">
+            <h3>代理设置</h3>
+            <div class="setting-row">
+              <span>启用代理</span>
+              <label class="toggle-switch">
+                <input v-model="proxyEnabled" type="checkbox" @change="toggleProxy" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <div v-if="proxyEnabled" class="setting-row">
+              <span>代理地址</span>
+              <input
+                v-model="proxyHost"
+                class="proxy-input"
+                placeholder="127.0.0.1"
+                @change="updateProxy"
+              />
+            </div>
+            <div v-if="proxyEnabled" class="setting-row">
+              <span>代理端口</span>
+              <input
+                v-model="proxyPort"
+                class="proxy-input"
+                placeholder="7890"
+                @change="updateProxy"
+              />
+            </div>
+          </div>
+          <div class="settings-group">
             <h3>主题设置</h3>
             <div class="setting-row">
               <span>主色调</span>
@@ -660,6 +688,9 @@ const lyricsInfoSize = ref(defaultSettings.lyricsInfoSize)
 const lyricsTextSize = ref(defaultSettings.lyricsTextSize)
 const lyricsCoverRound = ref(defaultSettings.lyricsCoverRound)
 const lyricsCoverRotate = ref(defaultSettings.lyricsCoverRotate)
+const proxyEnabled = ref(defaultSettings.proxyEnabled)
+const proxyHost = ref(defaultSettings.proxyHost)
+const proxyPort = ref(defaultSettings.proxyPort)
 
 const showSearch = ref(false)
 const searchQuery = ref('')
@@ -799,6 +830,22 @@ async function loadAutoLaunchSetting(): Promise<void> {
   autoLaunch.value = await window.api.getAutoLaunch()
 }
 
+function toggleProxy(): void {
+  saveSettings()
+  if (proxyEnabled.value && proxyHost.value && proxyPort.value) {
+    window.api.setProxy(`http://${proxyHost.value}:${proxyPort.value}`)
+  } else {
+    window.api.setProxy(null)
+  }
+}
+
+function updateProxy(): void {
+  saveSettings()
+  if (proxyEnabled.value && proxyHost.value && proxyPort.value) {
+    window.api.setProxy(`http://${proxyHost.value}:${proxyPort.value}`)
+  }
+}
+
 function selectBgMode(mode: 'album' | 'custom'): void {
   bgMode.value = mode
   saveSettings()
@@ -835,7 +882,10 @@ function saveSettings(): void {
     lyricsTextSize: lyricsTextSize.value,
     lyricsCoverRound: lyricsCoverRound.value,
     lyricsCoverRotate: lyricsCoverRotate.value,
-    volume: volume.value
+    volume: volume.value,
+    proxyEnabled: proxyEnabled.value,
+    proxyHost: proxyHost.value,
+    proxyPort: proxyPort.value
   })
 }
 
@@ -865,6 +915,9 @@ async function loadSettings(): Promise<void> {
     lyricsCoverRotate.value =
       (saved.lyricsCoverRotate as boolean) ?? defaultSettings.lyricsCoverRotate
     volume.value = (saved.volume as number) ?? defaultSettings.volume
+    proxyEnabled.value = (saved.proxyEnabled as boolean) ?? defaultSettings.proxyEnabled
+    proxyHost.value = (saved.proxyHost as string) || defaultSettings.proxyHost
+    proxyPort.value = (saved.proxyPort as string) || defaultSettings.proxyPort
   }
 }
 
@@ -894,14 +947,33 @@ function logout(): void {
 
 async function apiRequest(
   path: string,
-  params: Record<string, string | number> = {}
+  params: Record<string, string | number> = {},
+  retries = 3
 ): Promise<Record<string, unknown>> {
   const query = new URLSearchParams()
   query.set('cookie', cookie.value)
   for (const [key, val] of Object.entries(params)) {
     query.set(key, String(val))
   }
-  return (await fetch(`http://localhost:3000${path}?${query.toString()}`)).json()
+  const url = `http://localhost:3000${path}?${query.toString()}`
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error(`API request failed (attempt ${attempt}/${retries}):`, path, error)
+      if (attempt === retries) {
+        throw error
+      }
+      // 等待后重试，每次等待时间递增
+      await new Promise((resolve) => setTimeout(resolve, attempt * 500))
+    }
+  }
+  return {}
 }
 
 async function loadPlaylists(): Promise<void> {
@@ -993,35 +1065,58 @@ async function playSong(
   currentSong.value = song
   currentIndex.value = index
   currentLyricIndex.value = -1
-  const urlRes = await apiRequest('/song/url/v1', { id: song.id, level: quality.value })
-  const data = urlRes.data as { url: string }[] | undefined
-  if (data?.[0]?.url && audioRef.value) {
-    audioRef.value.src = data[0].url
-    audioRef.value.volume = volume.value
-    if (seekTime !== undefined) {
-      audioRef.value.currentTime = seekTime
-    }
-    if (autoPlay) {
-      audioRef.value.play()
-      isPlaying.value = true
+
+  try {
+    const urlRes = await apiRequest('/song/url/v1', { id: song.id, level: quality.value })
+    const data = urlRes.data as { url: string }[] | undefined
+    if (data?.[0]?.url && audioRef.value) {
+      audioRef.value.src = data[0].url
+      audioRef.value.volume = volume.value
+      if (seekTime !== undefined) {
+        audioRef.value.currentTime = seekTime
+      }
+      if (autoPlay) {
+        audioRef.value.play()
+        isPlaying.value = true
+      } else {
+        isPlaying.value = false
+      }
     } else {
-      isPlaying.value = false
+      // 没有获取到播放地址，自动跳下一首
+      console.warn('No playable URL for song:', song.name)
+      if (autoPlay && songs.value.length > 1) {
+        setTimeout(() => nextSong(), 500)
+        return
+      }
+    }
+  } catch (error) {
+    console.error('Failed to get song URL:', error)
+    // 请求失败，自动跳下一首
+    if (autoPlay && songs.value.length > 1) {
+      setTimeout(() => nextSong(), 500)
+      return
     }
   }
-  const lrcRes = await apiRequest('/lyric', { id: song.id })
-  const lrc = (lrcRes.lrc as { lyric: string } | undefined)?.lyric || ''
-  parsedLyrics.value = lrc
-    .split('\n')
-    .map((line) => {
-      const m = line.match(/\[(\d+):(\d+)\.(\d+)\](.*)/)
-      if (!m) return null
-      const min = parseInt(m[1])
-      const sec = parseInt(m[2])
-      const msStr = m[3].padEnd(3, '0')
-      const ms = parseInt(msStr)
-      return { time: min * 60 + sec + ms / 1000, text: m[4].trim() || '♪' }
-    })
-    .filter((x): x is LyricLine => x !== null)
+
+  // 获取歌词（失败不影响播放）
+  try {
+    const lrcRes = await apiRequest('/lyric', { id: song.id })
+    const lrc = (lrcRes.lrc as { lyric: string } | undefined)?.lyric || ''
+    parsedLyrics.value = lrc
+      .split('\n')
+      .map((line) => {
+        const m = line.match(/\[(\d+):(\d+)\.(\d+)\](.*)/)
+        if (!m) return null
+        const min = parseInt(m[1])
+        const sec = parseInt(m[2])
+        const msStr = m[3].padEnd(3, '0')
+        const ms = parseInt(msStr)
+        return { time: min * 60 + sec + ms / 1000, text: m[4].trim() || '♪' }
+      })
+      .filter((x): x is LyricLine => x !== null)
+  } catch {
+    parsedLyrics.value = []
+  }
   saveLastPlaying()
 }
 
