@@ -1,0 +1,92 @@
+/* 搜索页面 */
+.search-page {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: linear-gradient(180deg, rgba(18, 18, 22, 0.97) 0%, rgba(12, 12, 16, 0.99) 100%);
+  backdrop-filter: blur(30px);
+  overflow-y: auto;
+}
+
+.search-input-wrap {
+  width: 80%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 8px 14px;
+  transition: all 0.2s;
+}
+
+.search-input-wrap:focus-within {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.search-input-wrap svg {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 18px;
+}
+
+.search-input-wrap input {
+  flex: 1;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+}
+
+.search-input-wrap input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.loading-tip {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 60px 20px;
+  font-size: 14px;
+}
+
+/* 艺人页面 */
+.artist-page {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: linear-gradient(180deg, rgba(18, 18, 22, 0.97) 0%, rgba(12, 12, 16, 0.99) 100%);
+  backdrop-filter: blur(30px);
+  overflow-y: auto;
+}
+
+.artist-content {
+  padding: 20px 28px 100px;
+}
+
+.artist-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.artist-avatar {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.artist-info h1 {
+  font-size: 26px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #fff;
+}
+
+.artist-info p {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+}
