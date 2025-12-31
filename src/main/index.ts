@@ -72,7 +72,7 @@ function startApiServer(): void {
     // 开发模式和打包后路径不同
     const serverScript = is.dev
       ? join(__dirname, '../../src/main/api-server.cjs')
-      : join(process.resourcesPath, 'app.asar.unpacked', 'src', 'main', 'api-server.cjs')
+      : join(process.resourcesPath, 'api-server.cjs')
 
     apiProcess = fork(serverScript, [], {
       stdio: 'inherit'
