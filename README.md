@@ -1,46 +1,14 @@
-<h1 align="center">electron-app</h1>
+<h1 align="center">毛绒音乐</h1>
 
-<p align="center">An Electron application with Vue3 and TypeScript</p>
+<p align="center">极简的网易云第三方播放器</p>
 
 <p align="center">
-<img src="https://img.shields.io/github/package-json/dependency-version/alex8088/electron-vite-boilerplate/dev/electron" alt="electron-version">
-<img src="https://img.shields.io/github/package-json/dependency-version/alex8088/electron-vite-boilerplate/dev/electron-vite" alt="electron-vite-version" />
-<img src="https://img.shields.io/github/package-json/dependency-version/alex8088/electron-vite-boilerplate/dev/electron-builder" alt="electron-builder-version" />
-<img src="https://img.shields.io/github/package-json/dependency-version/alex8088/electron-vite-boilerplate/dev/vite" alt="vite-version" />
-<img src="https://img.shields.io/github/package-json/dependency-version/alex8088/electron-vite-boilerplate/dev/vue" alt="vue-version" />
-<img src="https://img.shields.io/github/package-json/dependency-version/alex8088/electron-vite-boilerplate/dev/typescript" alt="typescript-version" />
+<img width="1200" height="800" alt="image" src="https://github.com/user-attachments/assets/3814a57c-658e-4177-8c94-46213c3346a5" />
+<img width="1440" height="2512" alt="image" src="https://github.com/user-attachments/assets/6e3cb754-9351-4bfb-9fd7-a0e6e4ec6c34" />
+<img width="1200" height="800" alt="image" src="https://github.com/user-attachments/assets/8b126e6f-620c-4647-a3b6-434506cfd5c2" />
+<img width="1200" height="800" alt="image" src="https://github.com/user-attachments/assets/84941ea9-230d-469e-ab9e-11d37e1eefda" />
 </p>
 
-<p align='center'>
-<img src='./build/electron-vite-vue-ts.png'/>
-</p>
-
-## Features
-
-- 💡 Optimize asset handling
-- 🚀 Fast HMR for renderer processes
-- 🔥 Hot reloading for main process and preload scripts
-- 🔌 Easy to debug
-- 🔒 Compile to v8 bytecode to protect source code
-
-## Getting Started
-
-Read [documentation](https://electron-vite.org/) for more details.
-
-- [Configuring](https://electron-vite.org/config/)
-- [Development](https://electron-vite.org/guide/dev.html)
-- [Asset Handling](https://electron-vite.org/guide/assets.html)
-- [HMR](https://electron-vite.org/guide/hmr.html) & [Hot Reloading](https://electron-vite.org/guide/hot-reloading.html)
-- [Debugging](https://electron-vite.org/guide/debugging.html)
-- [Source code protection](https://electron-vite.org/guide/source-code-protection.html)
-- [Distribution](https://electron-vite.org/guide/distribution.html)
-- [Troubleshooting](https://electron-vite.org/guide/troubleshooting.html)
-
-You can also use the [create-electron](https://github.com/alex8088/quick-start/tree/master/packages/create-electron) tool to scaffold your project for other frameworks (e.g. `React`, `Svelte` or `Solid`).
-
-## Recommended IDE Setup
-
-- [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) + [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin)
 
 ## Project Setup
 
