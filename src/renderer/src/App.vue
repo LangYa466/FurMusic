@@ -168,6 +168,16 @@
             </div>
           </div>
           <div class="settings-group">
+            <h3>系统设置</h3>
+            <div class="setting-row">
+              <span>开机自启动</span>
+              <label class="toggle-switch">
+                <input v-model="autoLaunch" type="checkbox" @change="toggleAutoLaunch" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+          <div class="settings-group">
             <h3>主题设置</h3>
             <div class="setting-row">
               <span>主色调</span>
@@ -637,6 +647,7 @@ const waitingLineRef = ref<HTMLElement | null>(null)
 const lyricLineRefs = ref<Map<number, HTMLElement>>(new Map())
 const lyricsScrollY = ref(0)
 const showSettings = ref(false)
+const autoLaunch = ref(false)
 const openDropdown = ref('')
 const bgMode = ref<'album' | 'custom'>(defaultSettings.bgMode)
 const customBgUrl = ref(defaultSettings.customBgUrl)
@@ -778,6 +789,14 @@ function selectQuality(key: string): void {
   quality.value = key
   saveSettings()
   openDropdown.value = ''
+}
+
+async function toggleAutoLaunch(): Promise<void> {
+  autoLaunch.value = await window.api.setAutoLaunch(autoLaunch.value)
+}
+
+async function loadAutoLaunchSetting(): Promise<void> {
+  autoLaunch.value = await window.api.getAutoLaunch()
 }
 
 function selectBgMode(mode: 'album' | 'custom'): void {
@@ -1118,6 +1137,7 @@ function setVolume(): void {
 
 onMounted(async () => {
   loadSettings()
+  loadAutoLaunchSetting()
   if (audioRef.value) {
     audioRef.value.volume = volume.value
   }

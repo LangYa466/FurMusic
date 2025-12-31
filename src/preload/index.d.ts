@@ -9,6 +9,8 @@ declare global {
       close: () => void
       openReleases: () => void
       onUpdateAvailable: (callback: (version: string) => void) => void
+      getAutoLaunch: () => Promise<boolean>
+      setAutoLaunch: (enable: boolean) => Promise<boolean>
     }
   }
 }

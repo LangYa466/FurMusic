@@ -12,6 +12,27 @@ const RELEASES_URL = 'https://github.com/LangYa466/FurMusic/releases'
 let apiProcess: ChildProcess | null = null
 let mainWindow: BrowserWindow | null = null
 
+// 开机自启动相关
+function getAutoLaunchEnabled(): boolean {
+  return app.getLoginItemSettings().openAtLogin
+}
+
+function setAutoLaunch(enable: boolean): void {
+  if (process.platform === 'linux') {
+    // Linux 使用 path 参数
+    app.setLoginItemSettings({
+      openAtLogin: enable,
+      path: process.execPath
+    })
+  } else {
+    // Windows 和 macOS
+    app.setLoginItemSettings({
+      openAtLogin: enable,
+      openAsHidden: true // macOS: 启动时隐藏窗口
+    })
+  }
+}
+
 function compareVersion(v1: string, v2: string): number {
   const parts1 = v1.split('.').map(Number)
   const parts2 = v2.split('.').map(Number)
@@ -110,6 +131,13 @@ app.whenReady().then(() => {
   })
   ipcMain.on('window-close', () => mainWindow?.close())
   ipcMain.on('open-releases', () => shell.openExternal(RELEASES_URL))
+
+  // 开机自启动 IPC
+  ipcMain.handle('get-auto-launch', () => getAutoLaunchEnabled())
+  ipcMain.handle('set-auto-launch', (_, enable: boolean) => {
+    setAutoLaunch(enable)
+    return getAutoLaunchEnabled()
+  })
 
   startApiServer()
   createWindow()
