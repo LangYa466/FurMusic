@@ -393,10 +393,10 @@
       <div class="login-card">
         <h1>网易云音乐</h1>
         <p class="login-tip">
-          登陆网页版；打开网页的开发者工具 - 网络，只显示fetch/xhr；<br />
+          登陆网页版网易云；打开网页的开发者工具 - 网络，只显示fetch/xhr；<br />
           点击每日歌曲推荐，在开发者工具那里找到songs?csrf_token那一条；<br />
           点击它，找到里面的：标头 - 请求标头 - cookie，全部复制，回到程序里粘贴，登陆。<br />
-          <strong>仅Chrome系浏览器可用该教程</strong>
+          <strong>仅Chromium内核浏览器可用该教程</strong>
         </p>
         <textarea v-model="cookieInput" placeholder="粘贴Cookie..."></textarea>
         <button :style="{ background: themeColor }" @click="login">登录</button>
