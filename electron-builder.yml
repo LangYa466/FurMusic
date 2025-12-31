@@ -14,9 +14,10 @@ files:
 extraResources:
   - from: 'src/main/api-server.cjs'
     to: 'api-server.cjs'
+  - from: 'node_modules/NeteaseCloudMusicApi'
+    to: 'node_modules/NeteaseCloudMusicApi'
 asarUnpack:
   - resources/**
-  - node_modules/NeteaseCloudMusicApi/**
 win:
   executableName: furmusic
 nsis:

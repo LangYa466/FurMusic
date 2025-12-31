@@ -70,12 +70,23 @@ function checkForUpdates(): void {
 function startApiServer(): void {
   try {
     // 开发模式和打包后路径不同
-    const serverScript = is.dev
-      ? join(__dirname, '../../src/main/api-server.cjs')
-      : join(process.resourcesPath, 'api-server.cjs')
+    let serverScript: string
+    let modulePath: string
+
+    if (is.dev) {
+      serverScript = join(__dirname, '../../src/main/api-server.cjs')
+      modulePath = join(__dirname, '../../node_modules')
+    } else {
+      serverScript = join(process.resourcesPath, 'api-server.cjs')
+      modulePath = join(process.resourcesPath, 'node_modules')
+    }
 
     apiProcess = fork(serverScript, [], {
-      stdio: 'inherit'
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        NODE_PATH: modulePath
+      }
     })
     apiProcess.on('error', (err) => {
       console.error('API server error:', err)
