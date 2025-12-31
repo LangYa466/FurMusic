@@ -123,13 +123,10 @@
   left: 0;
   right: 0;
   top: 50%;
-  margin-top: calc(-1 * var(--line-height, 60px) / 2);
   transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
-  transform: translateY(calc(-1 * var(--scroll-index, 0) * var(--line-height, 60px)));
 }
 
 .lyric-line {
-  height: var(--line-height, 60px);
   display: flex;
   align-items: center;
   font-size: var(--text-size, 26px);
@@ -137,7 +134,7 @@
   color: rgba(255, 255, 255, 0.35);
   cursor: pointer;
   transition: all 0.3s ease;
-  padding: 0 20px;
+  padding: 10px 20px;
 }
 
 .lyric-line:not(.active):hover {

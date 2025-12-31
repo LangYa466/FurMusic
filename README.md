@@ -9,7 +9,6 @@
 <img width="1200" height="800" alt="image" src="https://github.com/user-attachments/assets/84941ea9-230d-469e-ab9e-11d37e1eefda" />
 </p>
 
-
 ## Project Setup
 
 ### Install

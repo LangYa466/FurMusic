@@ -40,10 +40,16 @@
           </div>
           <div class="lyrics-right" :style="lyricsFontStyle">
             <div class="lyrics-scroll" :style="lyricsScrollStyle">
-              <p :class="['lyric-line', 'waiting', { active: currentLyricIndex === -1 }]">♪</p>
+              <p
+                ref="waitingLineRef"
+                :class="['lyric-line', 'waiting', { active: currentLyricIndex === -1 }]"
+              >
+                ♪
+              </p>
               <p
                 v-for="(line, i) in parsedLyrics"
                 :key="i"
+                :ref="(el) => setLyricLineRef(el as HTMLElement, i)"
                 :class="[
                   'lyric-line',
                   {
@@ -627,6 +633,9 @@ const shuffledIndices = ref<number[]>([])
 const parsedLyrics = ref<LyricLine[]>([])
 const currentLyricIndex = ref(0)
 const showLyricsPage = ref(false)
+const waitingLineRef = ref<HTMLElement | null>(null)
+const lyricLineRefs = ref<Map<number, HTMLElement>>(new Map())
+const lyricsScrollY = ref(0)
 const showSettings = ref(false)
 const openDropdown = ref('')
 const bgMode = ref<'album' | 'custom'>(defaultSettings.bgMode)
@@ -695,8 +704,48 @@ const lyricsFontStyle = computed(() => ({
 }))
 
 const lyricsScrollStyle = computed(() => ({
-  '--scroll-index': currentLyricIndex.value + 1
+  transform: `translateY(${-lyricsScrollY.value}px)`
 }))
+
+// 设置歌词行的 ref
+function setLyricLineRef(el: HTMLElement | null, index: number): void {
+  if (el) {
+    lyricLineRefs.value.set(index, el)
+  } else {
+    lyricLineRefs.value.delete(index)
+  }
+}
+
+// 计算歌词滚动位置（基于实际元素高度）
+function updateLyricsScrollPosition(): void {
+  let totalHeight = 0
+
+  // 加上等待行（♪）的高度
+  if (waitingLineRef.value) {
+    totalHeight += waitingLineRef.value.offsetHeight
+  }
+
+  // 累加当前歌词之前所有行的实际高度
+  for (let i = 0; i < currentLyricIndex.value; i++) {
+    const el = lyricLineRefs.value.get(i)
+    if (el) {
+      totalHeight += el.offsetHeight
+    }
+  }
+
+  // 加上当前行高度的一半，使当前行居中
+  if (currentLyricIndex.value >= 0) {
+    const currentEl = lyricLineRefs.value.get(currentLyricIndex.value)
+    if (currentEl) {
+      totalHeight += currentEl.offsetHeight / 2
+    }
+  } else if (waitingLineRef.value) {
+    // 如果是等待状态，居中等待行
+    totalHeight = waitingLineRef.value.offsetHeight / 2
+  }
+
+  lyricsScrollY.value = totalHeight
+}
 
 const lyricsPageSizeStyle = computed(() => ({
   '--cover-size': `${lyricsCoverSize.value}px`,
@@ -1113,6 +1162,23 @@ watch(showQueue, (val) => {
         currentQueueItemRef.value.scrollIntoView({ block: 'center', behavior: 'smooth' })
       }
     }, 50)
+  }
+})
+
+// 监听歌词索引变化，更新滚动位置
+watch(currentLyricIndex, () => {
+  // 使用 nextTick 确保 DOM 已更新
+  setTimeout(() => {
+    updateLyricsScrollPosition()
+  }, 0)
+})
+
+// 监听歌词页面显示，初始化滚动位置
+watch(showLyricsPage, (val) => {
+  if (val) {
+    setTimeout(() => {
+      updateLyricsScrollPosition()
+    }, 100)
   }
 })
 </script>
