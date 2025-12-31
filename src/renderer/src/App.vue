@@ -823,67 +823,61 @@ function selectThemeColor(color: string): void {
 }
 
 function saveSettings(): void {
-  localStorage.setItem(
-    'netease_settings',
-    JSON.stringify({
-      bgMode: bgMode.value,
-      customBgUrl: customBgUrl.value,
-      quality: quality.value,
-      mainFont: mainFont.value,
-      lyricsFont: lyricsFont.value,
-      themeColor: themeColor.value,
-      lyricsCoverSize: lyricsCoverSize.value,
-      lyricsInfoSize: lyricsInfoSize.value,
-      lyricsTextSize: lyricsTextSize.value,
-      lyricsCoverRound: lyricsCoverRound.value,
-      lyricsCoverRotate: lyricsCoverRotate.value,
-      volume: volume.value
-    })
-  )
+  window.api.storeSet('settings', {
+    bgMode: bgMode.value,
+    customBgUrl: customBgUrl.value,
+    quality: quality.value,
+    mainFont: mainFont.value,
+    lyricsFont: lyricsFont.value,
+    themeColor: themeColor.value,
+    lyricsCoverSize: lyricsCoverSize.value,
+    lyricsInfoSize: lyricsInfoSize.value,
+    lyricsTextSize: lyricsTextSize.value,
+    lyricsCoverRound: lyricsCoverRound.value,
+    lyricsCoverRotate: lyricsCoverRotate.value,
+    volume: volume.value
+  })
 }
 
 function saveLastPlaying(): void {
   if (currentSong.value && currentPlaylist.value) {
-    localStorage.setItem(
-      'netease_last_playing',
-      JSON.stringify({
-        songId: currentSong.value.id,
-        playlistId: currentPlaylist.value.id,
-        currentTime: currentTime.value
-      })
-    )
+    window.api.storeSet('last_playing', {
+      songId: currentSong.value.id,
+      playlistId: currentPlaylist.value.id,
+      currentTime: currentTime.value
+    })
   }
 }
 
-function loadSettings(): void {
-  const saved = localStorage.getItem('netease_settings')
+async function loadSettings(): Promise<void> {
+  const saved = (await window.api.storeGet('settings')) as Record<string, unknown> | null
   if (saved) {
-    const s = JSON.parse(saved)
-    bgMode.value = s.bgMode || defaultSettings.bgMode
-    customBgUrl.value = s.customBgUrl || defaultSettings.customBgUrl
-    quality.value = s.quality || defaultSettings.quality
-    mainFont.value = s.mainFont || defaultSettings.mainFont
-    lyricsFont.value = s.lyricsFont || defaultSettings.lyricsFont
-    themeColor.value = s.themeColor || defaultSettings.themeColor
-    lyricsCoverSize.value = s.lyricsCoverSize || defaultSettings.lyricsCoverSize
-    lyricsInfoSize.value = s.lyricsInfoSize || defaultSettings.lyricsInfoSize
-    lyricsTextSize.value = s.lyricsTextSize || defaultSettings.lyricsTextSize
-    lyricsCoverRound.value = s.lyricsCoverRound ?? defaultSettings.lyricsCoverRound
-    lyricsCoverRotate.value = s.lyricsCoverRotate ?? defaultSettings.lyricsCoverRotate
-    volume.value = s.volume ?? defaultSettings.volume
+    bgMode.value = (saved.bgMode as 'album' | 'custom') || defaultSettings.bgMode
+    customBgUrl.value = (saved.customBgUrl as string) || defaultSettings.customBgUrl
+    quality.value = (saved.quality as string) || defaultSettings.quality
+    mainFont.value = (saved.mainFont as string) || defaultSettings.mainFont
+    lyricsFont.value = (saved.lyricsFont as string) || defaultSettings.lyricsFont
+    themeColor.value = (saved.themeColor as string) || defaultSettings.themeColor
+    lyricsCoverSize.value = (saved.lyricsCoverSize as number) || defaultSettings.lyricsCoverSize
+    lyricsInfoSize.value = (saved.lyricsInfoSize as number) || defaultSettings.lyricsInfoSize
+    lyricsTextSize.value = (saved.lyricsTextSize as number) || defaultSettings.lyricsTextSize
+    lyricsCoverRound.value = (saved.lyricsCoverRound as boolean) ?? defaultSettings.lyricsCoverRound
+    lyricsCoverRotate.value =
+      (saved.lyricsCoverRotate as boolean) ?? defaultSettings.lyricsCoverRotate
+    volume.value = (saved.volume as number) ?? defaultSettings.volume
   }
 }
 
 async function login(): Promise<void> {
   if (!cookieInput.value.trim()) return
   cookie.value = cookieInput.value.trim()
-  localStorage.setItem('netease_cookie', cookie.value)
+  await window.api.storeSet('cookie', cookie.value)
   await loadPlaylists()
   isLoggedIn.value = true
 }
 
 function logout(): void {
-  localStorage.removeItem('netease_cookie')
+  window.api.storeSet('cookie', '')
   cookie.value = ''
   cookieInput.value = ''
   isLoggedIn.value = false
@@ -1136,7 +1130,7 @@ function setVolume(): void {
 }
 
 onMounted(async () => {
-  loadSettings()
+  await loadSettings()
   loadAutoLaunchSetting()
   if (audioRef.value) {
     audioRef.value.volume = volume.value
@@ -1148,15 +1142,19 @@ onMounted(async () => {
     showUpdateModal.value = true
   })
 
-  const saved = localStorage.getItem('netease_cookie')
+  const saved = (await window.api.storeGet('cookie')) as string | null
   if (saved) {
     cookie.value = saved
     cookieInput.value = saved
     await loadPlaylists()
     isLoggedIn.value = true
-    const lastPlaying = localStorage.getItem('netease_last_playing')
+    const lastPlaying = (await window.api.storeGet('last_playing')) as {
+      songId: number
+      playlistId: number
+      currentTime: number
+    } | null
     if (lastPlaying) {
-      const { songId, playlistId, currentTime: savedTime } = JSON.parse(lastPlaying)
+      const { songId, playlistId, currentTime: savedTime } = lastPlaying
       const playlist = playlists.value.find((p) => p.id === playlistId)
       if (playlist) {
         await selectPlaylist(playlist)

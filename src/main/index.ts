@@ -1,7 +1,7 @@
 import { app, shell, BrowserWindow, ipcMain, net, Tray, Menu } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { fork, ChildProcess } from 'child_process'
+import { readFileSync, writeFileSync, existsSync } from 'fs'
 import icon from '../../resources/icon.png?asset'
 
 const LOCAL_VERSION = '1.0.0'
@@ -9,10 +9,32 @@ const VERSION_URL =
   'https://raw.githubusercontent.com/LangYa466/FurMusic/refs/heads/master/version.txt'
 const RELEASES_URL = 'https://github.com/LangYa466/FurMusic/releases'
 
-let apiProcess: ChildProcess | null = null
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let isQuitting = false
+let apiServer: { close: () => void } | null = null
+
+// 持久化数据存储路径
+const getStorePath = (name: string): string => {
+  return join(app.getPath('userData'), `${name}.json`)
+}
+
+const loadStore = (name: string): unknown => {
+  const path = getStorePath(name)
+  if (existsSync(path)) {
+    try {
+      return JSON.parse(readFileSync(path, 'utf-8'))
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
+const saveStore = (name: string, data: unknown): void => {
+  const path = getStorePath(name)
+  writeFileSync(path, JSON.stringify(data), 'utf-8')
+}
 
 // 开机自启动相关
 function getAutoLaunchEnabled(): boolean {
@@ -69,29 +91,20 @@ function checkForUpdates(): void {
 
 function startApiServer(): void {
   try {
-    // 开发模式和打包后路径不同
-    let serverScript: string
-    let modulePath: string
-
-    if (is.dev) {
-      serverScript = join(__dirname, '../../src/main/api-server.cjs')
-      modulePath = join(__dirname, '../../node_modules')
-    } else {
-      serverScript = join(process.resourcesPath, 'api-server.cjs')
-      modulePath = join(process.resourcesPath, 'node_modules')
-    }
-
-    apiProcess = fork(serverScript, [], {
-      stdio: 'inherit',
-      env: {
-        ...process.env,
-        NODE_PATH: modulePath
-      }
+    // 直接在主进程中启动 API 服务器
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { serveNcmApi } = require('NeteaseCloudMusicApi')
+    serveNcmApi({
+      port: 3000,
+      host: '127.0.0.1'
     })
-    apiProcess.on('error', (err) => {
-      console.error('API server error:', err)
-    })
-    console.log('NeteaseCloudMusicApi server starting...')
+      .then((server: { close: () => void }) => {
+        apiServer = server
+        console.log('NeteaseCloudMusicApi server started on http://127.0.0.1:3000')
+      })
+      .catch((err: Error) => {
+        console.error('Failed to start API server:', err)
+      })
   } catch (error) {
     console.error('Failed to start API server:', error)
   }
@@ -196,6 +209,13 @@ app.whenReady().then(() => {
     return getAutoLaunchEnabled()
   })
 
+  // 持久化存储 IPC
+  ipcMain.handle('store-get', (_, name: string) => loadStore(name))
+  ipcMain.handle('store-set', (_, name: string, data: unknown) => {
+    saveStore(name, data)
+    return true
+  })
+
   startApiServer()
   createWindow()
   createTray()
@@ -207,8 +227,8 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  if (apiProcess) {
-    apiProcess.kill()
+  if (apiServer) {
+    apiServer.close()
   }
   if (process.platform !== 'darwin') {
     app.quit()

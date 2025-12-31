@@ -1,11 +1,5 @@
-const path = require('path')
-
-// 打包后从 extraResources 加载模块
-const modulePath = process.env.NODE_PATH
-  ? path.join(process.env.NODE_PATH, 'NeteaseCloudMusicApi/server.js')
-  : 'NeteaseCloudMusicApi/server.js'
-
-const { serveNcmApi } = require(modulePath)
+// 直接 require，依赖 cwd 设置正确的 node_modules 路径
+const { serveNcmApi } = require('NeteaseCloudMusicApi/server.js')
 
 serveNcmApi({
   port: 3000,

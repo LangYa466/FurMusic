@@ -11,6 +11,8 @@ declare global {
       onUpdateAvailable: (callback: (version: string) => void) => void
       getAutoLaunch: () => Promise<boolean>
       setAutoLaunch: (enable: boolean) => Promise<boolean>
+      storeGet: (name: string) => Promise<unknown>
+      storeSet: (name: string, data: unknown) => Promise<boolean>
     }
   }
 }

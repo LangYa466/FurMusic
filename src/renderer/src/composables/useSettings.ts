@@ -16,7 +16,7 @@ const lyricsCoverRotate = ref(defaultSettings.lyricsCoverRotate)
 const volume = ref(defaultSettings.volume)
 
 export function useSettings() {
-  const saveSettings = () => {
+  const saveSettings = async () => {
     const settings: Settings = {
       bgMode: bgMode.value,
       customBgUrl: customBgUrl.value,
@@ -31,36 +31,34 @@ export function useSettings() {
       lyricsCoverRotate: lyricsCoverRotate.value,
       volume: volume.value
     }
-    localStorage.setItem('netease_settings', JSON.stringify(settings))
+    await window.api.storeSet('settings', settings)
   }
 
-  const loadSettings = () => {
-    const saved = localStorage.getItem('netease_settings')
+  const loadSettings = async () => {
+    const saved = (await window.api.storeGet('settings')) as Partial<Settings> | null
     if (saved) {
-      const s = JSON.parse(saved) as Partial<Settings>
-      bgMode.value = s.bgMode || defaultSettings.bgMode
-      customBgUrl.value = s.customBgUrl || defaultSettings.customBgUrl
-      quality.value = s.quality || defaultSettings.quality
-      mainFont.value = s.mainFont || defaultSettings.mainFont
-      lyricsFont.value = s.lyricsFont || defaultSettings.lyricsFont
-      themeColor.value = s.themeColor || defaultSettings.themeColor
-      lyricsCoverSize.value = s.lyricsCoverSize || defaultSettings.lyricsCoverSize
-      lyricsInfoSize.value = s.lyricsInfoSize || defaultSettings.lyricsInfoSize
-      lyricsTextSize.value = s.lyricsTextSize || defaultSettings.lyricsTextSize
-      lyricsCoverRound.value = s.lyricsCoverRound ?? defaultSettings.lyricsCoverRound
-      lyricsCoverRotate.value = s.lyricsCoverRotate ?? defaultSettings.lyricsCoverRotate
-      volume.value = s.volume ?? defaultSettings.volume
+      bgMode.value = saved.bgMode || defaultSettings.bgMode
+      customBgUrl.value = saved.customBgUrl || defaultSettings.customBgUrl
+      quality.value = saved.quality || defaultSettings.quality
+      mainFont.value = saved.mainFont || defaultSettings.mainFont
+      lyricsFont.value = saved.lyricsFont || defaultSettings.lyricsFont
+      themeColor.value = saved.themeColor || defaultSettings.themeColor
+      lyricsCoverSize.value = saved.lyricsCoverSize || defaultSettings.lyricsCoverSize
+      lyricsInfoSize.value = saved.lyricsInfoSize || defaultSettings.lyricsInfoSize
+      lyricsTextSize.value = saved.lyricsTextSize || defaultSettings.lyricsTextSize
+      lyricsCoverRound.value = saved.lyricsCoverRound ?? defaultSettings.lyricsCoverRound
+      lyricsCoverRotate.value = saved.lyricsCoverRotate ?? defaultSettings.lyricsCoverRotate
+      volume.value = saved.volume ?? defaultSettings.volume
     }
   }
 
-  const saveLastPlaying = (songId: number, playlistId: number, currentTime: number) => {
+  const saveLastPlaying = async (songId: number, playlistId: number, currentTime: number) => {
     const data: LastPlaying = { songId, playlistId, currentTime }
-    localStorage.setItem('netease_last_playing', JSON.stringify(data))
+    await window.api.storeSet('last_playing', data)
   }
 
-  const loadLastPlaying = (): LastPlaying | null => {
-    const saved = localStorage.getItem('netease_last_playing')
-    return saved ? JSON.parse(saved) : null
+  const loadLastPlaying = async (): Promise<LastPlaying | null> => {
+    return (await window.api.storeGet('last_playing')) as LastPlaying | null
   }
 
   return {
