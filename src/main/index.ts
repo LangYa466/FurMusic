@@ -179,7 +179,17 @@ function createWindow(): void {
 }
 
 function createTray(): void {
-  tray = new Tray(icon)
+  // Windows 需要使用 ico 格式，开发模式和打包后路径不同
+  let trayIconPath: string
+  if (process.platform === 'win32') {
+    trayIconPath = is.dev
+      ? join(__dirname, '../../build/icon.ico')
+      : join(process.resourcesPath, 'app.asar.unpacked/build/icon.ico')
+  } else {
+    trayIconPath = icon
+  }
+
+  tray = new Tray(trayIconPath)
   const contextMenu = Menu.buildFromTemplate([
     {
       label: '显示窗口',

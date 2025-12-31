@@ -12,6 +12,7 @@ files:
   - 'out/**/*'
 asarUnpack:
   - resources/**
+  - build/icon.ico
   - node_modules/NeteaseCloudMusicApi/**
 win:
   executableName: furmusic
