@@ -12,7 +12,7 @@ const RELEASES_URL = 'https://github.com/LangYa466/FurMusic/releases/latest'
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let isQuitting = false
-let apiServer: { close: () => void } | null = null
+let apiServer: { server?: { close: (callback?: () => void) => void } } | null = null
 let currentProxy: string | null = null
 
 // 持久化数据存储路径
@@ -109,7 +109,7 @@ function startApiServer(): void {
       port: 3000,
       host: '127.0.0.1'
     })
-      .then((server: { close: () => void }) => {
+      .then((server: { server?: { close: (callback?: () => void) => void } }) => {
         apiServer = server
         console.log('NeteaseCloudMusicApi server started on http://127.0.0.1:3000')
       })
@@ -122,8 +122,8 @@ function startApiServer(): void {
 }
 
 function restartApiServer(): void {
-  if (apiServer) {
-    apiServer.close()
+  if (apiServer?.server) {
+    apiServer.server.close()
     apiServer = null
   }
   startApiServer()
@@ -278,8 +278,8 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  if (apiServer) {
-    apiServer.close()
+  if (apiServer?.server) {
+    apiServer.server.close()
   }
   if (process.platform !== 'darwin') {
     app.quit()
