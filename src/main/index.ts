@@ -5,7 +5,8 @@ import { fork, ChildProcess } from 'child_process'
 import icon from '../../resources/icon.png?asset'
 
 const LOCAL_VERSION = '1.0.0'
-const VERSION_URL = 'https://raw.githubusercontent.com/LangYa466/FurMusic/refs/heads/master/version.txt'
+const VERSION_URL =
+  'https://raw.githubusercontent.com/LangYa466/FurMusic/refs/heads/master/version.txt'
 const RELEASES_URL = 'https://github.com/LangYa466/FurMusic/releases'
 
 let apiProcess: ChildProcess | null = null

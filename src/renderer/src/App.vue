@@ -577,13 +577,21 @@
 
     <!-- 更新提示弹窗 -->
     <Transition name="fade">
-      <div v-if="showUpdateModal" class="update-modal-overlay" @click.self="showUpdateModal = false">
+      <div
+        v-if="showUpdateModal"
+        class="update-modal-overlay"
+        @click.self="showUpdateModal = false"
+      >
         <div class="update-modal">
           <h3>发现新版本</h3>
-          <p>新版本 <strong>{{ newVersion }}</strong> 已发布</p>
+          <p>
+            新版本 <strong>{{ newVersion }}</strong> 已发布
+          </p>
           <div class="update-modal-actions">
             <button class="update-btn-later" @click="showUpdateModal = false">稍后</button>
-            <button class="update-btn-go" :style="{ background: themeColor }" @click="goToReleases">前往下载</button>
+            <button class="update-btn-go" :style="{ background: themeColor }" @click="goToReleases">
+              前往下载
+            </button>
           </div>
         </div>
       </div>
@@ -893,7 +901,11 @@ async function openArtistPage(artist: Artist | undefined): Promise<void> {
       currentArtist.value = {
         id: artist.id,
         name: artistData.name || artist.name,
-        picUrl: artistData.cover || artistData.picUrl || artistData.img1v1Url || currentSong.value?.al?.picUrl,
+        picUrl:
+          artistData.cover ||
+          artistData.picUrl ||
+          artistData.img1v1Url ||
+          currentSong.value?.al?.picUrl,
         img1v1Url: artistData.img1v1Url || artistData.picUrl || artistData.cover
       }
     }
@@ -1060,13 +1072,13 @@ onMounted(async () => {
   if (audioRef.value) {
     audioRef.value.volume = volume.value
   }
-  
+
   // 监听更新提示
   window.api.onUpdateAvailable((version) => {
     newVersion.value = version
     showUpdateModal.value = true
   })
-  
+
   const saved = localStorage.getItem('netease_cookie')
   if (saved) {
     cookie.value = saved
