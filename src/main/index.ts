@@ -4,7 +4,7 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import icon from '../../resources/icon.png?asset'
 
-const LOCAL_VERSION = '1.0.1'
+const LOCAL_VERSION = '1.0.2'
 const VERSION_URL =
   'https://raw.githubusercontent.com/LangYa466/FurMusic/refs/heads/master/version.txt'
 const RELEASES_URL = 'https://github.com/LangYa466/FurMusic/releases/latest'
@@ -71,6 +71,11 @@ function compareVersion(v1: string, v2: string): number {
 }
 
 function checkForUpdates(): void {
+  // 确保窗口已加载完成
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return
+  }
+
   const request = net.request(VERSION_URL)
   request.on('response', (response) => {
     let data = ''
@@ -79,6 +84,7 @@ function checkForUpdates(): void {
     })
     response.on('end', () => {
       const remoteVersion = data.trim()
+      console.log('Remote version:', remoteVersion, 'Local version:', LOCAL_VERSION)
       if (compareVersion(remoteVersion, LOCAL_VERSION) > 0) {
         mainWindow?.webContents.send('update-available', remoteVersion)
       }
@@ -148,6 +154,11 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()
+  })
+
+  // 页面加载完成后检查更新
+  mainWindow.webContents.on('did-finish-load', () => {
+    checkForUpdates()
   })
 
   // F12 打开开发者工具
@@ -270,7 +281,6 @@ app.whenReady().then(() => {
   startApiServer()
   createWindow()
   createTray()
-  checkForUpdates()
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
