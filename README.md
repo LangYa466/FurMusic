@@ -1,7 +1,6 @@
 <h1 align="center">毛绒音乐</h1>
 
 <p align="center">极简的网易云第三方播放器 专注于竖屏</p>
-<p align="center">搜索歌曲 查看艺人歌曲 随机/顺序/单曲播放<p>
 
 <p align="center">
 <img width="1200" height="800" alt="image" src="https://github.com/user-attachments/assets/3814a57c-658e-4177-8c94-46213c3346a5" />
