@@ -575,6 +575,20 @@
       </div>
     </Transition>
 
+    <!-- 更新提示弹窗 -->
+    <Transition name="fade">
+      <div v-if="showUpdateModal" class="update-modal-overlay" @click.self="showUpdateModal = false">
+        <div class="update-modal">
+          <h3>发现新版本</h3>
+          <p>新版本 <strong>{{ newVersion }}</strong> 已发布</p>
+          <div class="update-modal-actions">
+            <button class="update-btn-later" @click="showUpdateModal = false">稍后</button>
+            <button class="update-btn-go" :style="{ background: themeColor }" @click="goToReleases">前往下载</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
     <audio ref="audioRef" @timeupdate="onTimeUpdate" @ended="onEnded" @loadedmetadata="onLoaded" />
   </div>
 </template>
@@ -628,6 +642,8 @@ const showArtist = ref(false)
 const showQueue = ref(false)
 const queueListRef = ref<HTMLElement | null>(null)
 const currentQueueItemRef = ref<HTMLElement | null>(null)
+const showUpdateModal = ref(false)
+const newVersion = ref('')
 const currentArtist = ref<ArtistInfo | null>(null)
 const artistSongs = ref<Song[]>([])
 const artistLoading = ref(false)
@@ -691,6 +707,10 @@ function maximizeWindow(): void {
 }
 function closeWindow(): void {
   window.api.close()
+}
+function goToReleases(): void {
+  window.api.openReleases()
+  showUpdateModal.value = false
 }
 
 function toggleDropdown(name: string): void {
@@ -1040,6 +1060,13 @@ onMounted(async () => {
   if (audioRef.value) {
     audioRef.value.volume = volume.value
   }
+  
+  // 监听更新提示
+  window.api.onUpdateAvailable((version) => {
+    newVersion.value = version
+    showUpdateModal.value = true
+  })
+  
   const saved = localStorage.getItem('netease_cookie')
   if (saved) {
     cookie.value = saved

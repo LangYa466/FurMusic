@@ -5,7 +5,11 @@ import { electronAPI } from '@electron-toolkit/preload'
 const api = {
   minimize: () => ipcRenderer.send('window-minimize'),
   maximize: () => ipcRenderer.send('window-maximize'),
-  close: () => ipcRenderer.send('window-close')
+  close: () => ipcRenderer.send('window-close'),
+  openReleases: () => ipcRenderer.send('open-releases'),
+  onUpdateAvailable: (callback: (version: string) => void) => {
+    ipcRenderer.on('update-available', (_, version) => callback(version))
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -7,6 +7,8 @@ declare global {
       minimize: () => void
       maximize: () => void
       close: () => void
+      openReleases: () => void
+      onUpdateAvailable: (callback: (version: string) => void) => void
     }
   }
 }

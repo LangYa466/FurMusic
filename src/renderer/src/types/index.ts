@@ -33,6 +33,7 @@ export interface ArtistInfo {
   name: string
   picUrl?: string
   img1v1Url?: string
+  cover?: string
 }
 
 export interface Settings {

@@ -1,11 +1,47 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, net } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { fork, ChildProcess } from 'child_process'
 import icon from '../../resources/icon.png?asset'
 
+const LOCAL_VERSION = '1.0.0'
+const VERSION_URL = 'https://raw.githubusercontent.com/LangYa466/FurMusic/refs/heads/master/version.txt'
+const RELEASES_URL = 'https://github.com/LangYa466/FurMusic/releases'
+
 let apiProcess: ChildProcess | null = null
 let mainWindow: BrowserWindow | null = null
+
+function compareVersion(v1: string, v2: string): number {
+  const parts1 = v1.split('.').map(Number)
+  const parts2 = v2.split('.').map(Number)
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const p1 = parts1[i] || 0
+    const p2 = parts2[i] || 0
+    if (p1 > p2) return 1
+    if (p1 < p2) return -1
+  }
+  return 0
+}
+
+function checkForUpdates(): void {
+  const request = net.request(VERSION_URL)
+  request.on('response', (response) => {
+    let data = ''
+    response.on('data', (chunk) => {
+      data += chunk.toString()
+    })
+    response.on('end', () => {
+      const remoteVersion = data.trim()
+      if (compareVersion(remoteVersion, LOCAL_VERSION) > 0) {
+        mainWindow?.webContents.send('update-available', remoteVersion)
+      }
+    })
+  })
+  request.on('error', (err) => {
+    console.error('Update check failed:', err)
+  })
+  request.end()
+}
 
 function startApiServer(): void {
   try {
@@ -72,9 +108,11 @@ app.whenReady().then(() => {
     }
   })
   ipcMain.on('window-close', () => mainWindow?.close())
+  ipcMain.on('open-releases', () => shell.openExternal(RELEASES_URL))
 
   startApiServer()
   createWindow()
+  checkForUpdates()
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
