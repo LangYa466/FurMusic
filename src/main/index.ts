@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, net } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, net, globalShortcut } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { fork, ChildProcess } from 'child_process'
@@ -142,6 +142,11 @@ app.whenReady().then(() => {
   startApiServer()
   createWindow()
   checkForUpdates()
+
+  // 注册 F12 快捷键打开开发者工具
+  globalShortcut.register('F12', () => {
+    mainWindow?.webContents.toggleDevTools()
+  })
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
