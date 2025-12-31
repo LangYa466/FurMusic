@@ -158,9 +158,9 @@ function createWindow(): void {
     }
   })
 
-  // 点击关闭按钮时最小化到托盘
+  // 点击关闭按钮时最小化到托盘（仅当托盘创建成功时）
   mainWindow.on('close', (event) => {
-    if (!isQuitting) {
+    if (!isQuitting && tray) {
       event.preventDefault()
       mainWindow?.hide()
     }
@@ -189,27 +189,32 @@ function createTray(): void {
     trayIconPath = icon
   }
 
-  tray = new Tray(trayIconPath)
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: '显示窗口',
-      click: () => {
-        mainWindow?.show()
+  try {
+    tray = new Tray(trayIconPath)
+    const contextMenu = Menu.buildFromTemplate([
+      {
+        label: '显示窗口',
+        click: () => {
+          mainWindow?.show()
+        }
+      },
+      {
+        label: '退出',
+        click: () => {
+          isQuitting = true
+          app.quit()
+        }
       }
-    },
-    {
-      label: '退出',
-      click: () => {
-        isQuitting = true
-        app.quit()
-      }
-    }
-  ])
-  tray.setToolTip('FurMusic')
-  tray.setContextMenu(contextMenu)
-  tray.on('click', () => {
-    mainWindow?.show()
-  })
+    ])
+    tray.setToolTip('FurMusic')
+    tray.setContextMenu(contextMenu)
+    tray.on('click', () => {
+      mainWindow?.show()
+    })
+  } catch (error) {
+    console.error('Failed to create tray:', error)
+    tray = null
+  }
 }
 
 app.whenReady().then(() => {
