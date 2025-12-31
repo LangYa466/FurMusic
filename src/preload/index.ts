@@ -12,7 +12,8 @@ const api = {
   },
   // 开机自启动
   getAutoLaunch: () => ipcRenderer.invoke('get-auto-launch') as Promise<boolean>,
-  setAutoLaunch: (enable: boolean) => ipcRenderer.invoke('set-auto-launch', enable) as Promise<boolean>
+  setAutoLaunch: (enable: boolean) =>
+    ipcRenderer.invoke('set-auto-launch', enable) as Promise<boolean>
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, net, globalShortcut } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, net, Tray, Menu } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { fork, ChildProcess } from 'child_process'
@@ -11,6 +11,8 @@ const RELEASES_URL = 'https://github.com/LangYa466/FurMusic/releases'
 
 let apiProcess: ChildProcess | null = null
 let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null
+let isQuitting = false
 
 // 开机自启动相关
 function getAutoLaunchEnabled(): boolean {
@@ -67,7 +69,11 @@ function checkForUpdates(): void {
 
 function startApiServer(): void {
   try {
-    const serverScript = join(__dirname, '../../src/main/api-server.cjs')
+    // 开发模式和打包后路径不同
+    const serverScript = is.dev
+      ? join(__dirname, '../../src/main/api-server.cjs')
+      : join(process.resourcesPath, 'app.asar.unpacked', 'src', 'main', 'api-server.cjs')
+
     apiProcess = fork(serverScript, [], {
       stdio: 'inherit'
     })
@@ -101,6 +107,22 @@ function createWindow(): void {
     mainWindow?.show()
   })
 
+  // F12 打开开发者工具
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12') {
+      mainWindow?.webContents.toggleDevTools()
+      event.preventDefault()
+    }
+  })
+
+  // 点击关闭按钮时最小化到托盘
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault()
+      mainWindow?.hide()
+    }
+  })
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
@@ -111,6 +133,30 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+}
+
+function createTray(): void {
+  tray = new Tray(icon)
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '显示窗口',
+      click: () => {
+        mainWindow?.show()
+      }
+    },
+    {
+      label: '退出',
+      click: () => {
+        isQuitting = true
+        app.quit()
+      }
+    }
+  ])
+  tray.setToolTip('FurMusic')
+  tray.setContextMenu(contextMenu)
+  tray.on('click', () => {
+    mainWindow?.show()
+  })
 }
 
 app.whenReady().then(() => {
@@ -141,12 +187,8 @@ app.whenReady().then(() => {
 
   startApiServer()
   createWindow()
+  createTray()
   checkForUpdates()
-
-  // 注册 F12 快捷键打开开发者工具
-  globalShortcut.register('F12', () => {
-    mainWindow?.webContents.toggleDevTools()
-  })
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
