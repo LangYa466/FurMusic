@@ -74,6 +74,15 @@
             <span>{{ formatTime(duration) }}</span>
           </div>
           <div class="lyrics-controls">
+            <button
+              class="like-btn"
+              :class="{ liked: isLiked }"
+              :style="isLiked ? { color: themeColor } : {}"
+              :title="isLiked ? '取消喜欢' : '喜欢'"
+              @click="toggleLike"
+            >
+              <Icon :icon="isLiked ? 'mdi:heart' : 'mdi:heart-outline'" />
+            </button>
             <button @click="prevSong"><Icon icon="mdi:skip-previous" /></button>
             <button class="play-btn" @click="togglePlay">
               <Icon :icon="isPlaying ? 'mdi:pause' : 'mdi:play'" />
@@ -522,6 +531,16 @@
           <p class="song-artist">{{ getArtists(currentSong) }}</p>
         </div>
       </div>
+      <button
+        v-if="currentSong"
+        class="like-btn"
+        :class="{ liked: isLiked }"
+        :style="isLiked ? { color: themeColor } : {}"
+        :title="isLiked ? '取消喜欢' : '喜欢'"
+        @click="toggleLike"
+      >
+        <Icon :icon="isLiked ? 'mdi:heart' : 'mdi:heart-outline'" />
+      </button>
       <div class="player-controls">
         <button @click="prevSong"><Icon icon="mdi:skip-previous" /></button>
         <button class="play-btn" :style="{ background: themeColor }" @click="togglePlay">
@@ -706,6 +725,8 @@ const newVersion = ref('')
 const currentArtist = ref<ArtistInfo | null>(null)
 const artistSongs = ref<Song[]>([])
 const artistLoading = ref(false)
+const likedSongIds = ref<Set<number>>(new Set())
+const isLiked = computed(() => currentSong.value ? likedSongIds.value.has(currentSong.value.id) : false)
 
 const progressPercent = computed(() =>
   duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0
@@ -983,6 +1004,38 @@ async function loadPlaylists(): Promise<void> {
     const res = await apiRequest('/user/playlist', { uid: profile.userId })
     playlists.value = (res.playlist as Playlist[]) || []
     if (playlists.value.length > 0) await selectPlaylist(playlists.value[0])
+    // 加载喜欢的歌曲列表
+    await loadLikedSongs()
+  }
+}
+
+async function loadLikedSongs(): Promise<void> {
+  try {
+    const res = await apiRequest('/likelist')
+    const ids = res.ids as number[] | undefined
+    if (ids) {
+      likedSongIds.value = new Set(ids)
+    }
+  } catch {
+    console.error('Failed to load liked songs')
+  }
+}
+
+async function toggleLike(): Promise<void> {
+  if (!currentSong.value) return
+  const songId = currentSong.value.id
+  const like = !isLiked.value
+  try {
+    await apiRequest('/like', { id: songId, like: like ? 'true' : 'false' })
+    if (like) {
+      likedSongIds.value.add(songId)
+    } else {
+      likedSongIds.value.delete(songId)
+    }
+    // 触发响应式更新
+    likedSongIds.value = new Set(likedSongIds.value)
+  } catch {
+    console.error('Failed to toggle like')
   }
 }
 
