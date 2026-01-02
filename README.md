@@ -3,9 +3,10 @@
 <p align="center">极简的网易云第三方播放器 专注于竖屏</p>
 
 <p align="center">
-<img width="1200" height="800" alt="image" src="https://github.com/user-attachments/assets/3814a57c-658e-4177-8c94-46213c3346a5" />
-<img width="1440" height="2512" alt="image" src="https://github.com/user-attachments/assets/6e3cb754-9351-4bfb-9fd7-a0e6e4ec6c34" />
+<img width="1200" height="800" alt="image" src="https://github.com/user-attachments/assets/66f8b09e-3014-41aa-b258-65558214c7a3" />
+<img width="1440" height="2512" alt="image" src="https://github.com/user-attachments/assets/f6747bd1-7d6c-41e7-af41-1f51545b71c7" />
 <img width="1200" height="800" alt="image" src="https://github.com/user-attachments/assets/8b126e6f-620c-4647-a3b6-434506cfd5c2" />
+<img width="561" height="1077" alt="image" src="https://github.com/user-attachments/assets/7af659b4-21e8-40ac-8038-15fdedc6b7ea" />
 <img width="1200" height="800" alt="image" src="https://github.com/user-attachments/assets/84941ea9-230d-469e-ab9e-11d37e1eefda" />
 </p>
 
