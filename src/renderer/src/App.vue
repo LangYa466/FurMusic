@@ -1267,7 +1267,8 @@ function saveSettings(): void {
     proxyPort: proxyPort.value,
     playlistSortOrder: playlistSortOrder.value,
     songSortBy: songSortBy.value,
-    songSortOrder: songSortOrder.value
+    songSortOrder: songSortOrder.value,
+    playMode: playMode.value
   })
 }
 
@@ -1303,6 +1304,7 @@ async function loadSettings(): Promise<void> {
     playlistSortOrder.value = (saved.playlistSortOrder as 'asc' | 'desc') || 'asc'
     songSortBy.value = (saved.songSortBy as 'default' | 'name' | 'artist' | 'duration') || 'default'
     songSortOrder.value = (saved.songSortOrder as 'asc' | 'desc') || 'asc'
+    playMode.value = (saved.playMode as 'single' | 'list' | 'shuffle') || 'list'
   }
 }
 
@@ -1659,6 +1661,7 @@ function togglePlayMode(): void {
   const modes: Array<'single' | 'list' | 'shuffle'> = ['list', 'single', 'shuffle']
   const currentIdx = modes.indexOf(playMode.value)
   playMode.value = modes[(currentIdx + 1) % modes.length]
+  saveSettings()
 }
 
 function seekByClick(e: MouseEvent): void {
