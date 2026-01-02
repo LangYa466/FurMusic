@@ -478,10 +478,36 @@
         </div>
         <div class="sidebar-header">
           <h2>我的歌单</h2>
+          <div class="playlist-controls">
+            <button
+              class="control-btn"
+              title="搜索歌单"
+              @click="showPlaylistSearch = !showPlaylistSearch"
+            >
+              <Icon icon="mdi:magnify" />
+            </button>
+            <button class="control-btn" title="排序" @click="togglePlaylistSort">
+              <Icon
+                :icon="
+                  playlistSortOrder === 'asc'
+                    ? 'mdi:sort-alphabetical-ascending'
+                    : 'mdi:sort-alphabetical-descending'
+                "
+              />
+            </button>
+          </div>
+        </div>
+        <div v-if="showPlaylistSearch" class="playlist-search">
+          <input
+            v-model="playlistSearchQuery"
+            type="text"
+            placeholder="搜索歌单..."
+            class="playlist-search-input"
+          />
         </div>
         <div class="playlist-list">
           <div
-            v-for="playlist in playlists"
+            v-for="playlist in filteredPlaylists"
             :key="playlist.id"
             :class="['playlist-item', { active: currentPlaylist?.id === playlist.id }]"
             @click="selectPlaylist(playlist)"
@@ -496,19 +522,77 @@
           <img :src="currentPlaylist.coverImgUrl" class="playlist-cover" />
           <div class="playlist-info">
             <h1>{{ currentPlaylist.name }}</h1>
-            <p>{{ songs.length }} 首歌曲</p>
-            <button class="play-all-btn" :style="{ background: themeColor }" @click="playAll">
+            <p v-if="playlistLoading">加载中...</p>
+            <p v-else>{{ filteredSongs.length }} 首歌曲</p>
+            <button
+              class="play-all-btn"
+              :style="{ background: themeColor }"
+              :disabled="playlistLoading || filteredSongs.length === 0"
+              @click="playAll"
+            >
               <Icon icon="mdi:play" /> 播放全部
             </button>
           </div>
         </div>
-        <div class="song-list">
+        <div v-if="currentPlaylist && !playlistLoading" class="song-controls">
+          <div class="song-search">
+            <Icon icon="mdi:magnify" />
+            <input
+              v-model="songSearchQuery"
+              type="text"
+              placeholder="搜索歌曲..."
+              class="song-search-input"
+            />
+          </div>
+          <div class="song-sort">
+            <div class="custom-select" @click="toggleDropdown('songSort')">
+              <span>{{ getSortLabel(songSortBy) }}</span>
+              <Icon icon="mdi:chevron-down" :class="{ rotated: openDropdown === 'songSort' }" />
+              <Transition name="dropdown">
+                <div v-if="openDropdown === 'songSort'" class="dropdown-menu">
+                  <div
+                    :class="['dropdown-item', { active: songSortBy === 'default' }]"
+                    @click.stop="selectSortBy('default')"
+                  >
+                    默认排序
+                  </div>
+                  <div
+                    :class="['dropdown-item', { active: songSortBy === 'name' }]"
+                    @click.stop="selectSortBy('name')"
+                  >
+                    按歌名
+                  </div>
+                  <div
+                    :class="['dropdown-item', { active: songSortBy === 'artist' }]"
+                    @click.stop="selectSortBy('artist')"
+                  >
+                    按歌手
+                  </div>
+                  <div
+                    :class="['dropdown-item', { active: songSortBy === 'duration' }]"
+                    @click.stop="selectSortBy('duration')"
+                  >
+                    按时长
+                  </div>
+                </div>
+              </Transition>
+            </div>
+            <button class="sort-order-btn" @click="toggleSongSortOrder">
+              <Icon
+                :icon="songSortOrder === 'asc' ? 'mdi:sort-ascending' : 'mdi:sort-descending'"
+              />
+            </button>
+          </div>
+        </div>
+        <div v-if="playlistLoading" class="loading-tip">加载中...</div>
+        <div v-else class="song-list">
           <div
-            v-for="(song, index) in songs"
+            v-for="(song, index) in filteredSongs"
             :key="song.id"
             :class="['song-item', { playing: currentSong?.id === song.id }]"
             :style="currentSong?.id === song.id ? { background: themeColor + '40' } : {}"
-            @click="playSong(song, index)"
+            @click="playSongFromFiltered(song)"
+            @contextmenu.prevent="showSongContextMenu($event, song)"
           >
             <span class="song-index">{{ index + 1 }}</span>
             <img :src="song.al?.picUrl" class="song-cover" />
@@ -660,6 +744,59 @@
       </div>
     </Transition>
 
+    <!-- 右键菜单 -->
+    <Transition name="fade">
+      <div
+        v-if="showContextMenu"
+        class="context-menu-overlay"
+        @click="hideContextMenu"
+        @contextmenu.prevent="hideContextMenu"
+      >
+        <div class="context-menu" :style="{ left: contextMenuX + 'px', top: contextMenuY + 'px' }">
+          <div class="context-menu-item" @click.stop="removeSongFromPlaylist">
+            <Icon icon="mdi:delete" />
+            从歌单中删除
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 确认对话框 -->
+    <Transition name="fade">
+      <div v-if="showConfirmDialog" class="update-modal-overlay" @click.self="hideConfirmDialog">
+        <div class="update-modal">
+          <h3>{{ confirmDialog.title }}</h3>
+          <p>{{ confirmDialog.message }}</p>
+          <div class="update-modal-actions">
+            <button class="update-btn-later" @click="hideConfirmDialog">取消</button>
+            <button
+              class="update-btn-go"
+              :style="{ background: themeColor }"
+              @click="confirmAction"
+            >
+              确定
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- 消息提示 -->
+    <Transition name="message-slide">
+      <div v-if="showMessage" class="message-toast" :class="messageType">
+        <Icon
+          :icon="
+            messageType === 'success'
+              ? 'mdi:check-circle'
+              : messageType === 'error'
+                ? 'mdi:alert-circle'
+                : 'mdi:information'
+          "
+        />
+        <span>{{ messageText }}</span>
+      </div>
+    </Transition>
+
     <audio ref="audioRef" @timeupdate="onTimeUpdate" @ended="onEnded" @loadedmetadata="onLoaded" />
   </div>
 </template>
@@ -726,7 +863,212 @@ const currentArtist = ref<ArtistInfo | null>(null)
 const artistSongs = ref<Song[]>([])
 const artistLoading = ref(false)
 const likedSongIds = ref<Set<number>>(new Set())
-const isLiked = computed(() => currentSong.value ? likedSongIds.value.has(currentSong.value.id) : false)
+const isLiked = computed(() =>
+  currentSong.value ? likedSongIds.value.has(currentSong.value.id) : false
+)
+const showPlaylistSearch = ref(false)
+const playlistSearchQuery = ref('')
+const playlistSortOrder = ref<'asc' | 'desc'>('asc')
+const songSearchQuery = ref('')
+const songSortBy = ref<'default' | 'name' | 'artist' | 'duration'>('default')
+const songSortOrder = ref<'asc' | 'desc'>('asc')
+
+// 歌单加载状态
+const playlistLoading = ref(false)
+
+// 右键菜单相关
+const showContextMenu = ref(false)
+const contextMenuX = ref(0)
+const contextMenuY = ref(0)
+const contextMenuSong = ref<Song | null>(null)
+
+// 确认对话框相关
+const showConfirmDialog = ref(false)
+const confirmDialog = ref({
+  title: '',
+  message: '',
+  action: null as (() => void) | null
+})
+
+// 消息提示相关
+const showMessage = ref(false)
+const messageText = ref('')
+const messageType = ref<'success' | 'error' | 'info'>('info')
+
+// 右键菜单功能
+function showSongContextMenu(event: MouseEvent, song: Song): void {
+  event.preventDefault()
+  event.stopPropagation()
+  contextMenuSong.value = song
+  contextMenuX.value = event.clientX
+  contextMenuY.value = event.clientY
+  showContextMenu.value = true
+
+  // 确保右键后恢复正常的hover状态
+  const target = event.currentTarget as HTMLElement
+  if (target) {
+    // 移除可能的focus状态
+    target.blur()
+    // 强制重新计算样式
+    setTimeout(() => {
+      target.style.pointerEvents = 'auto'
+    }, 0)
+  }
+}
+
+function hideContextMenu(): void {
+  showContextMenu.value = false
+  contextMenuSong.value = null
+
+  // 确保所有song-item恢复正常的hover状态
+  const songItems = document.querySelectorAll('.song-item')
+  songItems.forEach((item) => {
+    const element = item as HTMLElement
+    element.style.pointerEvents = 'auto'
+  })
+}
+
+function removeSongFromPlaylist(): void {
+  if (!contextMenuSong.value || !currentPlaylist.value) return
+
+  // 保存歌曲信息，因为 hideContextMenu 会清空 contextMenuSong
+  const songToDelete = contextMenuSong.value
+  const playlistToDeleteFrom = currentPlaylist.value
+
+  hideContextMenu()
+
+  confirmDialog.value = {
+    title: '确认删除',
+    message: `确定要从歌单中删除 "${songToDelete.name}" 吗？`,
+    action: async () => {
+      try {
+        const response = await apiRequest('/playlist/track/delete', {
+          id: playlistToDeleteFrom.id,
+          ids: songToDelete.id.toString()
+        })
+
+        // 检查API响应
+        if (response.code === 200) {
+          // 从本地列表中移除歌曲
+          const songIndex = songs.value.findIndex((s) => s.id === songToDelete.id)
+          if (songIndex !== -1) {
+            songs.value.splice(songIndex, 1)
+
+            // 如果删除的是当前播放的歌曲，停止播放
+            if (currentSong.value?.id === songToDelete.id) {
+              if (audioRef.value) {
+                audioRef.value.pause()
+                audioRef.value.src = ''
+              }
+              currentSong.value = null
+              isPlaying.value = false
+            }
+
+            // 如果删除的歌曲在当前播放索引之前，需要调整索引
+            if (songIndex < currentIndex.value) {
+              currentIndex.value--
+            }
+          }
+
+          // 显示成功消息，优先使用msg字段
+          const message =
+            (response.msg as string) || (response.message as string) || '歌曲已从歌单中删除'
+          showMessageToast(message, 'success')
+        } else {
+          // 显示错误消息，优先使用msg字段
+          const message = (response.msg as string) || (response.message as string) || '删除歌曲失败'
+          showMessageToast(message, 'error')
+        }
+      } catch (error) {
+        console.error('删除歌曲失败:', error)
+        showMessageToast('删除歌曲失败，请重试', 'error')
+      }
+
+      hideConfirmDialog()
+    }
+  }
+
+  showConfirmDialog.value = true
+}
+
+function hideConfirmDialog(): void {
+  showConfirmDialog.value = false
+  confirmDialog.value = {
+    title: '',
+    message: '',
+    action: null
+  }
+}
+
+function confirmAction(): void {
+  if (confirmDialog.value.action) {
+    confirmDialog.value.action()
+  }
+}
+
+// 消息提示函数
+function showMessageToast(text: string, type: 'success' | 'error' | 'info' = 'info'): void {
+  messageText.value = text
+  messageType.value = type
+  showMessage.value = true
+
+  // 3秒后自动隐藏
+  setTimeout(() => {
+    showMessage.value = false
+  }, 3000)
+}
+
+const filteredPlaylists = computed(() => {
+  let filtered = playlists.value
+
+  // 搜索过滤
+  if (playlistSearchQuery.value.trim()) {
+    const query = playlistSearchQuery.value.toLowerCase()
+    filtered = filtered.filter((playlist) => playlist.name.toLowerCase().includes(query))
+  }
+
+  // 排序
+  return filtered.sort((a, b) => {
+    const comparison = a.name.localeCompare(b.name, 'zh-CN')
+    return playlistSortOrder.value === 'asc' ? comparison : -comparison
+  })
+})
+
+const filteredSongs = computed(() => {
+  let filtered = songs.value
+
+  // 搜索过滤
+  if (songSearchQuery.value.trim()) {
+    const query = songSearchQuery.value.toLowerCase()
+    filtered = filtered.filter(
+      (song) =>
+        song.name.toLowerCase().includes(query) || getArtists(song).toLowerCase().includes(query)
+    )
+  }
+
+  // 排序
+  if (songSortBy.value !== 'default') {
+    filtered = [...filtered].sort((a, b) => {
+      let comparison = 0
+
+      switch (songSortBy.value) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name, 'zh-CN')
+          break
+        case 'artist':
+          comparison = getArtists(a).localeCompare(getArtists(b), 'zh-CN')
+          break
+        case 'duration':
+          comparison = a.dt - b.dt
+          break
+      }
+
+      return songSortOrder.value === 'asc' ? comparison : -comparison
+    })
+  }
+
+  return filtered
+})
 
 const progressPercent = computed(() =>
   duration.value > 0 ? (currentTime.value / duration.value) * 100 : 0
@@ -843,6 +1185,22 @@ function selectQuality(key: string): void {
   openDropdown.value = ''
 }
 
+function selectSortBy(key: 'default' | 'name' | 'artist' | 'duration'): void {
+  songSortBy.value = key
+  openDropdown.value = ''
+  saveSettings()
+}
+
+function getSortLabel(sortBy: string): string {
+  const labels = {
+    default: '默认排序',
+    name: '按歌名',
+    artist: '按歌手',
+    duration: '按时长'
+  }
+  return labels[sortBy as keyof typeof labels] || '默认排序'
+}
+
 async function toggleAutoLaunch(): Promise<void> {
   autoLaunch.value = await window.api.setAutoLaunch(autoLaunch.value)
 }
@@ -906,7 +1264,10 @@ function saveSettings(): void {
     volume: volume.value,
     proxyEnabled: proxyEnabled.value,
     proxyHost: proxyHost.value,
-    proxyPort: proxyPort.value
+    proxyPort: proxyPort.value,
+    playlistSortOrder: playlistSortOrder.value,
+    songSortBy: songSortBy.value,
+    songSortOrder: songSortOrder.value
   })
 }
 
@@ -939,6 +1300,9 @@ async function loadSettings(): Promise<void> {
     proxyEnabled.value = (saved.proxyEnabled as boolean) ?? defaultSettings.proxyEnabled
     proxyHost.value = (saved.proxyHost as string) || defaultSettings.proxyHost
     proxyPort.value = (saved.proxyPort as string) || defaultSettings.proxyPort
+    playlistSortOrder.value = (saved.playlistSortOrder as 'asc' | 'desc') || 'asc'
+    songSortBy.value = (saved.songSortBy as 'default' | 'name' | 'artist' | 'duration') || 'default'
+    songSortOrder.value = (saved.songSortOrder as 'asc' | 'desc') || 'asc'
   }
 }
 
@@ -981,10 +1345,16 @@ async function apiRequest(
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const response = await fetch(url)
-      if (!response.ok) {
+      // 不管HTTP状态码如何，都尝试解析JSON响应
+      const data = await response.json()
+
+      // 如果响应不是200但有有效的JSON，直接返回数据
+      // 让调用方根据data.code来判断成功或失败
+      if (!response.ok && !data.code) {
         throw new Error(`HTTP ${response.status}`)
       }
-      return await response.json()
+
+      return data
     } catch (error) {
       console.error(`API request failed (attempt ${attempt}/${retries}):`, path, error)
       if (attempt === retries) {
@@ -1039,10 +1409,43 @@ async function toggleLike(): Promise<void> {
   }
 }
 
+function togglePlaylistSort(): void {
+  playlistSortOrder.value = playlistSortOrder.value === 'asc' ? 'desc' : 'asc'
+  saveSettings()
+}
+
+function toggleSongSortOrder(): void {
+  songSortOrder.value = songSortOrder.value === 'asc' ? 'desc' : 'asc'
+  saveSettings()
+}
+
+async function playSongFromFiltered(song: Song): Promise<void> {
+  // 找到歌曲在原始列表中的索引
+  const originalIndex = songs.value.findIndex((s) => s.id === song.id)
+  if (originalIndex !== -1) {
+    await playSong(song, originalIndex)
+  }
+}
+
 async function selectPlaylist(playlist: Playlist): Promise<void> {
   currentPlaylist.value = playlist
-  const res = await apiRequest('/playlist/track/all', { id: playlist.id })
-  songs.value = (res.songs as Song[]) || []
+  playlistLoading.value = true
+
+  // 立即清空歌曲列表，避免显示上一个歌单的内容
+  songs.value = []
+
+  try {
+    const res = await apiRequest('/playlist/track/all', { id: playlist.id })
+    songs.value = (res.songs as Song[]) || []
+  } catch (error) {
+    console.error('Failed to load playlist:', error)
+    songs.value = []
+  } finally {
+    playlistLoading.value = false
+  }
+
+  // 重置歌曲搜索状态，但保持排序偏好
+  songSearchQuery.value = ''
 }
 
 async function doSearch(): Promise<void> {
@@ -1345,6 +1748,23 @@ watch(showLyricsPage, (val) => {
     setTimeout(() => {
       updateLyricsScrollPosition()
     }, 100)
+  }
+})
+
+// 监听点击事件，隐藏右键菜单
+watch(showContextMenu, (val) => {
+  if (val) {
+    // 添加全局点击监听器
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('.context-menu')) {
+        hideContextMenu()
+        document.removeEventListener('click', handleClickOutside)
+      }
+    }
+    setTimeout(() => {
+      document.addEventListener('click', handleClickOutside)
+    }, 0)
   }
 })
 </script>
