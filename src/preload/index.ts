@@ -18,7 +18,10 @@ const api = {
   storeGet: (name: string) => ipcRenderer.invoke('store-get', name),
   storeSet: (name: string, data: unknown) => ipcRenderer.invoke('store-set', name, data),
   // 代理设置
-  setProxy: (proxyUrl: string | null) => ipcRenderer.invoke('set-proxy', proxyUrl)
+  setProxy: (proxyUrl: string | null) => ipcRenderer.invoke('set-proxy', proxyUrl),
+  // 日志
+  writeLog: (level: string, message: string, data?: unknown) =>
+    ipcRenderer.invoke('write-log', level, message, data)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

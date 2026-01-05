@@ -14,6 +14,7 @@ declare global {
       storeGet: (name: string) => Promise<unknown>
       storeSet: (name: string, data: unknown) => Promise<boolean>
       setProxy: (proxyUrl: string | null) => Promise<boolean>
+      writeLog: (level: string, message: string, data?: unknown) => Promise<boolean>
     }
   }
 }

@@ -1,10 +1,10 @@
 import { app, shell, BrowserWindow, ipcMain, net, Tray, Menu } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { readFileSync, writeFileSync, existsSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync } from 'fs'
 import icon from '../../resources/icon.png?asset'
 
-const LOCAL_VERSION = '1.0.4'
+const LOCAL_VERSION = '1.0.5'
 const VERSION_URL =
   'https://raw.githubusercontent.com/LangYa466/FurMusic/refs/heads/master/version.txt'
 const RELEASES_URL = 'https://github.com/LangYa466/FurMusic/releases/latest'
@@ -35,6 +35,29 @@ const loadStore = (name: string): unknown => {
 const saveStore = (name: string, data: unknown): void => {
   const path = getStorePath(name)
   writeFileSync(path, JSON.stringify(data), 'utf-8')
+}
+
+// 日志系统
+const getLogPath = (): string => {
+  const logDir = join(app.getPath('userData'), 'logs')
+  if (!existsSync(logDir)) {
+    mkdirSync(logDir, { recursive: true })
+  }
+  const today = new Date().toISOString().split('T')[0]
+  return join(logDir, `${today}.log`)
+}
+
+const writeLog = (level: string, message: string, data?: unknown): void => {
+  const timestamp = new Date().toISOString()
+  const logEntry = data
+    ? `[${timestamp}] [${level}] ${message} ${JSON.stringify(data)}\n`
+    : `[${timestamp}] [${level}] ${message}\n`
+
+  try {
+    appendFileSync(getLogPath(), logEntry, 'utf-8')
+  } catch (error) {
+    console.error('Failed to write log:', error)
+  }
 }
 
 // 开机自启动相关
@@ -265,6 +288,12 @@ app.whenReady().then(() => {
   ipcMain.handle('set-proxy', (_, proxyUrl: string | null) => {
     currentProxy = proxyUrl
     restartApiServer()
+    return true
+  })
+
+  // 日志 IPC
+  ipcMain.handle('write-log', (_, level: string, message: string, data?: unknown) => {
+    writeLog(level, message, data)
     return true
   })
 

@@ -797,7 +797,13 @@
       </div>
     </Transition>
 
-    <audio ref="audioRef" @timeupdate="onTimeUpdate" @ended="onEnded" @loadedmetadata="onLoaded" />
+    <audio
+      ref="audioRef"
+      @timeupdate="onTimeUpdate"
+      @ended="onEnded"
+      @loadedmetadata="onLoaded"
+      @error="onAudioError"
+    />
   </div>
 </template>
 
@@ -821,6 +827,28 @@ const audioRef = ref<HTMLAudioElement | null>(null)
 const isPlaying = ref(false)
 const currentTime = ref(0)
 const duration = ref(0)
+let audioErrorRetryCount = 0
+let isSkippingFailedSong = false
+
+// 日志工具函数
+const logger = {
+  info: (message: string, data?: unknown) => {
+    console.log(message, data)
+    window.api.writeLog('INFO', message, data)
+  },
+  error: (message: string, data?: unknown) => {
+    console.error(message, data)
+    window.api.writeLog('ERROR', message, data)
+  },
+  warn: (message: string, data?: unknown) => {
+    console.warn(message, data)
+    window.api.writeLog('WARN', message, data)
+  },
+  debug: (message: string, data?: unknown) => {
+    console.log(message, data)
+    window.api.writeLog('DEBUG', message, data)
+  }
+}
 const volume = ref(defaultSettings.volume)
 const playMode = ref<'single' | 'list' | 'shuffle'>('list')
 const shuffledIndices = ref<number[]>([])
@@ -1520,9 +1548,21 @@ async function playSong(
   seekTime?: number,
   autoPlay = true
 ): Promise<void> {
+  logger.debug('playSong called', {
+    songName: song?.name,
+    index,
+    songExists: !!song,
+    songId: song?.id
+  })
+  if (!song || !song.id) {
+    logger.warn('playSong: song is invalid, returning')
+    return
+  }
+
   currentSong.value = song
   currentIndex.value = index
   currentLyricIndex.value = -1
+  audioErrorRetryCount = 0
 
   try {
     const urlRes = await apiRequest('/song/url/v1', { id: song.id, level: quality.value })
@@ -1600,24 +1640,64 @@ function togglePlay(): void {
 
 function prevSong(): void {
   if (songs.value.length === 0) return
-  const i =
-    playMode.value === 'shuffle'
-      ? shuffledIndices.value[
-          (shuffledIndices.value.indexOf(currentIndex.value) - 1 + shuffledIndices.value.length) %
-            shuffledIndices.value.length
+
+  let i: number
+  if (playMode.value === 'shuffle') {
+    if (shuffledIndices.value.length === 0) {
+      // 如果 shuffle 列表为空，重新生成
+      shuffledIndices.value = [...Array(songs.value.length).keys()].sort(() => Math.random() - 0.5)
+    }
+    const currentPos = shuffledIndices.value.indexOf(currentIndex.value)
+    if (currentPos === -1) {
+      // 如果当前索引不在 shuffle 列表中，使用最后一个
+      i = shuffledIndices.value[shuffledIndices.value.length - 1]
+    } else {
+      i =
+        shuffledIndices.value[
+          (currentPos - 1 + shuffledIndices.value.length) % shuffledIndices.value.length
         ]
-      : (currentIndex.value - 1 + songs.value.length) % songs.value.length
+    }
+  } else {
+    i = (currentIndex.value - 1 + songs.value.length) % songs.value.length
+  }
+
   playSong(songs.value[i], i)
 }
 
 function nextSong(): void {
+  logger.debug('nextSong called', {
+    songsLength: songs.value.length,
+    currentIndex: currentIndex.value,
+    playMode: playMode.value
+  })
   if (songs.value.length === 0) return
-  const i =
-    playMode.value === 'shuffle'
-      ? shuffledIndices.value[
-          (shuffledIndices.value.indexOf(currentIndex.value) + 1) % shuffledIndices.value.length
-        ]
-      : (currentIndex.value + 1) % songs.value.length
+
+  let i: number
+  if (playMode.value === 'shuffle') {
+    logger.debug('shuffle mode', { shuffledIndicesLength: shuffledIndices.value.length })
+    if (shuffledIndices.value.length === 0) {
+      // 如果 shuffle 列表为空，重新生成
+      shuffledIndices.value = [...Array(songs.value.length).keys()].sort(() => Math.random() - 0.5)
+      logger.debug('generated new shuffledIndices', { length: shuffledIndices.value.length })
+    }
+    const currentPos = shuffledIndices.value.indexOf(currentIndex.value)
+    if (currentPos === -1) {
+      // 如果当前索引不在 shuffle 列表中，使用第一个
+      i = shuffledIndices.value[0]
+    } else {
+      i = shuffledIndices.value[(currentPos + 1) % shuffledIndices.value.length]
+    }
+  } else {
+    logger.debug('normal mode, calculating next index')
+    i = (currentIndex.value + 1) % songs.value.length
+    logger.debug('calculated index', { index: i })
+  }
+
+  logger.debug('nextSong: final result', {
+    index: i,
+    songExists: !!songs.value[i],
+    songName: songs.value[i]?.name
+  })
   playSong(songs.value[i], i)
 }
 
@@ -1654,6 +1734,88 @@ function onEnded(): void {
     }
   } else {
     nextSong()
+  }
+}
+
+async function onAudioError(): Promise<void> {
+  if (!audioRef.value || !currentSong.value) return
+
+  const error = audioRef.value.error
+  if (!error) return
+
+  let errorMsg = '音乐加载失败'
+  switch (error.code) {
+    case error.MEDIA_ERR_ABORTED:
+      errorMsg = '音乐加载被中止'
+      break
+    case error.MEDIA_ERR_NETWORK:
+      errorMsg = '网络错误，无法加载音乐'
+      break
+    case error.MEDIA_ERR_DECODE:
+      errorMsg = '音乐格式错误或损坏'
+      break
+    case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+      errorMsg = '不支持的音乐格式'
+      break
+  }
+
+  console.error('Audio error:', errorMsg, error)
+  logger.error('Audio error occurred', {
+    errorMsg,
+    errorCode: error.code,
+    songName: currentSong.value?.name,
+    retryCount: audioErrorRetryCount
+  })
+
+  // 如果正在跳过失败的歌曲，不再处理错误
+  if (isSkippingFailedSong) return
+
+  // 重试逻辑
+  if (audioErrorRetryCount < 3) {
+    audioErrorRetryCount++
+    showMessageToast(`${errorMsg}，正在重试 (${audioErrorRetryCount}/3)...`, 'error')
+
+    try {
+      // 等待一秒后重试
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      if (!currentSong.value) return
+
+      const urlRes = await apiRequest('/song/url/v1', {
+        id: currentSong.value.id,
+        level: quality.value
+      })
+      const data = urlRes.data as { url: string }[] | undefined
+      if (data?.[0]?.url && audioRef.value) {
+        audioRef.value.src = data[0].url
+        audioRef.value.play()
+        isPlaying.value = true
+        audioErrorRetryCount = 0
+        showMessageToast('重新加载成功', 'success')
+      } else {
+        // 继续重试
+        if (audioErrorRetryCount < 3) {
+          showMessageToast(`无法获取播放地址，正在重试 (${audioErrorRetryCount}/3)...`, 'error')
+        }
+      }
+    } catch (err) {
+      console.error('Failed to retry song URL:', err)
+      // 继续重试
+      if (audioErrorRetryCount < 3) {
+        showMessageToast(`重新获取失败，正在重试 (${audioErrorRetryCount}/3)...`, 'error')
+      }
+    }
+  } else {
+    // 重试3次都失败，跳到下一首歌
+    audioErrorRetryCount = 0
+    showMessageToast('无法加载此歌曲，已跳到下一首', 'error')
+    if (songs.value.length > 1) {
+      isSkippingFailedSong = true
+      setTimeout(() => {
+        nextSong()
+        isSkippingFailedSong = false
+      }, 500)
+    }
   }
 }
 
