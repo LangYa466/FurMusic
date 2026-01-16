@@ -209,7 +209,7 @@
               <input
                 v-model="proxyPort"
                 class="proxy-input"
-                placeholder="7890"
+                placeholder="2778"
                 @change="updateProxy"
               />
             </div>
@@ -820,7 +820,8 @@ const cookieInput = ref('')
 const cookie = ref('')
 const playlists = ref<Playlist[]>([])
 const currentPlaylist = ref<Playlist | null>(null)
-const songs = ref<Song[]>([])
+const playlistSongs = ref<Song[]>([]) // 当前歌单的歌曲列表（不会被搜索覆盖）
+const songs = ref<Song[]>([]) // 当前播放队列
 const currentSong = ref<Song | null>(null)
 const currentIndex = ref(0)
 const audioRef = ref<HTMLAudioElement | null>(null)
@@ -977,7 +978,13 @@ function removeSongFromPlaylist(): void {
 
         // 检查API响应
         if (response.code === 200) {
-          // 从本地列表中移除歌曲
+          // 从歌单列表中移除歌曲
+          const playlistSongIndex = playlistSongs.value.findIndex((s) => s.id === songToDelete.id)
+          if (playlistSongIndex !== -1) {
+            playlistSongs.value.splice(playlistSongIndex, 1)
+          }
+
+          // 从播放队列中移除歌曲
           const songIndex = songs.value.findIndex((s) => s.id === songToDelete.id)
           if (songIndex !== -1) {
             songs.value.splice(songIndex, 1)
@@ -1063,7 +1070,7 @@ const filteredPlaylists = computed(() => {
 })
 
 const filteredSongs = computed(() => {
-  let filtered = songs.value
+  let filtered = playlistSongs.value
 
   // 搜索过滤
   if (songSearchQuery.value.trim()) {
@@ -1351,6 +1358,7 @@ function logout(): void {
   isLoggedIn.value = false
   playlists.value = []
   currentPlaylist.value = null
+  playlistSongs.value = []
   songs.value = []
   currentSong.value = null
   if (audioRef.value) {
@@ -1450,8 +1458,10 @@ function toggleSongSortOrder(): void {
 }
 
 async function playSongFromFiltered(song: Song): Promise<void> {
-  // 找到歌曲在原始列表中的索引
-  const originalIndex = songs.value.findIndex((s) => s.id === song.id)
+  // 将播放队列设置为当前歌单的歌曲
+  songs.value = playlistSongs.value
+  // 找到歌曲在歌单列表中的索引
+  const originalIndex = playlistSongs.value.findIndex((s) => s.id === song.id)
   if (originalIndex !== -1) {
     await playSong(song, originalIndex)
   }
@@ -1462,13 +1472,17 @@ async function selectPlaylist(playlist: Playlist): Promise<void> {
   playlistLoading.value = true
 
   // 立即清空歌曲列表，避免显示上一个歌单的内容
+  playlistSongs.value = []
   songs.value = []
 
   try {
     const res = await apiRequest('/playlist/track/all', { id: playlist.id })
-    songs.value = (res.songs as Song[]) || []
+    const loadedSongs = (res.songs as Song[]) || []
+    playlistSongs.value = loadedSongs
+    songs.value = loadedSongs
   } catch (error) {
     console.error('Failed to load playlist:', error)
+    playlistSongs.value = []
     songs.value = []
   } finally {
     playlistLoading.value = false
@@ -1619,7 +1633,9 @@ async function playSong(
 }
 
 function playAll(): void {
-  if (songs.value.length === 0) return
+  if (playlistSongs.value.length === 0) return
+  // 将播放队列设置为当前歌单的歌曲
+  songs.value = playlistSongs.value
   if (playMode.value === 'shuffle') {
     shuffledIndices.value = [...Array(songs.value.length).keys()].sort(() => Math.random() - 0.5)
     playSong(songs.value[shuffledIndices.value[0]], shuffledIndices.value[0])
@@ -1852,6 +1868,24 @@ onMounted(async () => {
     audioRef.value.volume = volume.value
   }
 
+  // 监听 ESC 键，关闭歌词页面、设置页面、搜索页面等
+  const handleKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      if (showLyricsPage.value) {
+        showLyricsPage.value = false
+      } else if (showSettings.value) {
+        showSettings.value = false
+      } else if (showSearch.value) {
+        showSearch.value = false
+      } else if (showArtist.value) {
+        showArtist.value = false
+      } else if (showQueue.value) {
+        showQueue.value = false
+      }
+    }
+  }
+  window.addEventListener('keydown', handleKeydown)
+
   // 监听更新提示
   window.api.onUpdateAvailable((version) => {
     newVersion.value = version
@@ -1896,6 +1930,17 @@ watch(showQueue, (val) => {
         currentQueueItemRef.value.scrollIntoView({ block: 'center', behavior: 'smooth' })
       }
     }, 50)
+  }
+})
+
+// 监听当前歌曲变化，如果播放列表面板打开则滚动到当前歌曲
+watch(currentSong, () => {
+  if (showQueue.value) {
+    setTimeout(() => {
+      if (currentQueueItemRef.value && queueListRef.value) {
+        currentQueueItemRef.value.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      }
+    }, 100)
   }
 })
 

@@ -4,7 +4,12 @@ import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin(), bytecodePlugin()]
+    plugins: [externalizeDepsPlugin(), bytecodePlugin()],
+    build: {
+      rollupOptions: {
+        external: ['NeteaseCloudMusicApi']
+      }
+    }
   },
   preload: {
     plugins: [externalizeDepsPlugin(), bytecodePlugin()]
@@ -15,6 +20,10 @@ export default defineConfig({
         '@renderer': resolve('src/renderer/src')
       }
     },
-    plugins: [vue()]
+    plugins: [vue()],
+    define: {
+      // 禁用 Node.js 全局变量在渲染进程中的使用
+      global: 'globalThis'
+    }
   }
 })

@@ -4,7 +4,10 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync } from 'fs'
 import icon from '../../resources/icon.png?asset'
 
-const LOCAL_VERSION = '1.0.5'
+// 在应用启动前就禁用安全警告
+process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true'
+
+const LOCAL_VERSION = '1.0.6'
 const VERSION_URL =
   'https://raw.githubusercontent.com/LangYa466/FurMusic/refs/heads/master/version.txt'
 const RELEASES_URL = 'https://github.com/LangYa466/FurMusic/releases/latest'
@@ -171,7 +174,9 @@ function createWindow(): void {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
-      webSecurity: false
+      webSecurity: false,
+      contextIsolation: true,
+      nodeIntegration: false
     }
   })
 
