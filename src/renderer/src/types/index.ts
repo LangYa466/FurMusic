@@ -23,9 +23,17 @@ export interface Playlist {
   coverImgUrl: string
 }
 
+export interface LyricWord {
+  time: number // 逐字显示开始时间戳（毫秒）
+  duration: number // 逐字显示时长（厘秒/0.01s）
+  text: string // 文字内容
+}
+
 export interface LyricLine {
-  time: number
-  text: string
+  time: number // 歌词行显示开始时间戳（秒）
+  duration?: number // 歌词行显示总时长（毫秒）
+  text: string // 歌词文本
+  words?: LyricWord[] // 逐字歌词数据
 }
 
 export interface ArtistInfo {

@@ -59,7 +59,27 @@
                 ]"
                 @click="seekToLyric(line.time)"
               >
-                {{ line.text || '♪' }}
+                <template v-if="line.words && line.words.length > 0 && currentLyricIndex === i">
+                  <!-- 双层文字方案：用于逐字高亮 -->
+                  <span class="lyric-dual-layer">
+                    <!-- 底层：暗色文字 -->
+                    <span class="lyric-layer-bottom">{{ line.text }}</span>
+                    <!-- 上层：亮色文字，通过clip-path控制显示进度 -->
+                    <span
+                      class="lyric-layer-top-wrapper"
+                      :style="{ clipPath: getLyricProgressWidth(line, i) }"
+                    >
+                      <span class="lyric-layer-top">{{ line.text }}</span>
+                    </span>
+                  </span>
+                </template>
+                <template v-else-if="line.words && line.words.length > 0">
+                  <!-- 非当前行但有逐字数据，显示普通文字 -->
+                  {{ line.text || '♪' }}
+                </template>
+                <template v-else>
+                  {{ line.text || '♪' }}
+                </template>
               </p>
             </div>
           </div>
@@ -1308,10 +1328,10 @@ function saveSettings(): void {
 }
 
 function saveLastPlaying(): void {
-  if (currentSong.value && currentPlaylist.value) {
+  if (currentSong.value) {
     window.api.storeSet('last_playing', {
       songId: currentSong.value.id,
-      playlistId: currentPlaylist.value.id,
+      playlistId: currentPlaylist.value?.id || null,
       currentTime: currentTime.value
     })
   }
@@ -1458,9 +1478,9 @@ function toggleSongSortOrder(): void {
 }
 
 async function playSongFromFiltered(song: Song): Promise<void> {
-  // 将播放队列设置为当前歌单的歌曲
+  // 将播放队列设置为当前歌单的完整歌曲列表（不是过滤后的）
   songs.value = playlistSongs.value
-  // 找到歌曲在歌单列表中的索引
+  // 找到歌曲在完整歌单列表中的索引
   const originalIndex = playlistSongs.value.findIndex((s) => s.id === song.id)
   if (originalIndex !== -1) {
     await playSong(song, originalIndex)
@@ -1473,17 +1493,16 @@ async function selectPlaylist(playlist: Playlist): Promise<void> {
 
   // 立即清空歌曲列表，避免显示上一个歌单的内容
   playlistSongs.value = []
-  songs.value = []
+  // 不自动清空播放队列，保持当前播放状态
 
   try {
     const res = await apiRequest('/playlist/track/all', { id: playlist.id })
     const loadedSongs = (res.songs as Song[]) || []
     playlistSongs.value = loadedSongs
-    songs.value = loadedSongs
+    // 不自动更新播放队列，只有在点击播放时才更新
   } catch (error) {
     console.error('Failed to load playlist:', error)
     playlistSongs.value = []
-    songs.value = []
   } finally {
     playlistLoading.value = false
   }
@@ -1510,8 +1529,11 @@ async function doSearch(): Promise<void> {
 }
 
 async function playSearchSong(song: Song): Promise<void> {
+  // 将播放队列设置为搜索结果
   songs.value = searchResults.value
   const index = searchResults.value.findIndex((s) => s.id === song.id)
+  // 清空当前歌单引用，表示当前播放的是搜索结果而非歌单
+  currentPlaylist.value = null
   await playSong(song, index >= 0 ? index : 0)
 }
 
@@ -1552,7 +1574,10 @@ async function openArtistPage(artist: Artist | undefined): Promise<void> {
 }
 
 async function playArtistSong(song: Song, index: number): Promise<void> {
+  // 将播放队列设置为艺人歌曲列表
   songs.value = artistSongs.value
+  // 清空当前歌单引用，表示当前播放的是艺人歌曲而非歌单
+  currentPlaylist.value = null
   await playSong(song, index)
 }
 
@@ -1612,21 +1637,229 @@ async function playSong(
 
   // 获取歌词（失败不影响播放）
   try {
-    const lrcRes = await apiRequest('/lyric', { id: song.id })
-    const lrc = (lrcRes.lrc as { lyric: string } | undefined)?.lyric || ''
-    parsedLyrics.value = lrc
-      .split('\n')
-      .map((line) => {
-        const m = line.match(/\[(\d+):(\d+)\.(\d+)\](.*)/)
-        if (!m) return null
-        const min = parseInt(m[1])
-        const sec = parseInt(m[2])
-        const msStr = m[3].padEnd(3, '0')
-        const ms = parseInt(msStr)
-        return { time: min * 60 + sec + ms / 1000, text: m[4].trim() || '♪' }
-      })
-      .filter((x): x is LyricLine => x !== null)
-  } catch {
+    // 优先使用新接口获取逐字歌词
+    const lrcRes = await apiRequest('/lyric/new', { id: song.id })
+
+    // 尝试解析逐字歌词
+    const yrcData = lrcRes.yrc as { lyric: string } | undefined
+    const klyricData = lrcRes.klyric as { lyric: string; version: number } | undefined
+    const lrcData = lrcRes.lrc as { lyric: string } | undefined
+
+    let hasYrc = false
+    const parsedLines: LyricLine[] = []
+
+    // 优先检查 klyric（逐字歌词）
+    if (klyricData?.lyric && klyricData.version > 0) {
+      const klyricLines = klyricData.lyric.split('\n')
+
+      for (const line of klyricLines) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+
+        // 解析逐字歌词格式: [16210,3460](16210,670,0)还(16880,410,0)没...
+        const match = trimmed.match(/^\[(\d+),(\d+)\](.*)$/)
+        if (match) {
+          const lineStartTime = parseInt(match[1]) / 1000 // 转换为秒
+          const lineDuration = parseInt(match[2]) // 毫秒
+          const content = match[3]
+
+          // 解析逐字信息
+          const words: LyricWord[] = []
+          const wordRegex = /\((\d+),(\d+),\d+\)([^(]+)/g
+          let wordMatch
+          let fullText = ''
+
+          while ((wordMatch = wordRegex.exec(content)) !== null) {
+            const wordTime = parseInt(wordMatch[1]) // 毫秒
+            const wordDuration = parseInt(wordMatch[2]) // 厘秒
+            const wordText = wordMatch[3]
+
+            words.push({
+              time: wordTime,
+              duration: wordDuration,
+              text: wordText
+            })
+            fullText += wordText
+          }
+
+          parsedLines.push({
+            time: lineStartTime,
+            duration: lineDuration,
+            text: fullText.trim() || '♪',
+            words: words.length > 0 ? words : undefined
+          })
+          hasYrc = true
+        }
+      }
+    }
+    // 如果 klyric 没有，尝试 yrc
+    else if (yrcData?.lyric) {
+      const yrcLines = yrcData.lyric.split('\n')
+
+      for (const line of yrcLines) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+
+        // 解析逐字歌词格式: [16210,3460](16210,670,0)还(16880,410,0)没...
+        const match = trimmed.match(/^\[(\d+),(\d+)\](.*)$/)
+        if (match) {
+          const lineStartTime = parseInt(match[1]) / 1000 // 转换为秒
+          const lineDuration = parseInt(match[2]) // 毫秒
+          const content = match[3]
+
+          // 解析逐字信息
+          const words: LyricWord[] = []
+          const wordRegex = /\((\d+),(\d+),\d+\)([^(]+)/g
+          let wordMatch
+          let fullText = ''
+
+          while ((wordMatch = wordRegex.exec(content)) !== null) {
+            const wordTime = parseInt(wordMatch[1]) // 毫秒
+            const wordDuration = parseInt(wordMatch[2]) // 厘秒
+            const wordText = wordMatch[3]
+
+            words.push({
+              time: wordTime,
+              duration: wordDuration,
+              text: wordText
+            })
+            fullText += wordText
+          }
+
+          parsedLines.push({
+            time: lineStartTime,
+            duration: lineDuration,
+            text: fullText.trim() || '♪',
+            words: words.length > 0 ? words : undefined
+          })
+          hasYrc = true
+        }
+      }
+    }
+
+    // 如果没有逐字歌词或解析失败，使用普通歌词并模拟逐字效果
+    if (!hasYrc && lrcData?.lyric) {
+      let lrc = lrcData.lyric
+
+      // 处理混合格式的歌词（JSON + LRC）
+      const lines = lrc.split('\n')
+      const jsonLines: Array<{ time: number; text: string }> = []
+      const lrcLines: string[] = []
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+
+        // 检查是否是JSON格式
+        if (trimmed.startsWith('{') && trimmed.includes('"t":') && trimmed.includes('"c":')) {
+          try {
+            const jsonLine = JSON.parse(trimmed)
+            if (jsonLine.t !== undefined && jsonLine.c) {
+              const time = jsonLine.t / 1000
+              const text = jsonLine.c.map((c: { tx: string }) => c.tx).join('')
+              jsonLines.push({ time, text: text.trim() || '♪' })
+            }
+          } catch (e) {
+            lrcLines.push(line)
+          }
+        } else {
+          lrcLines.push(line)
+        }
+      }
+
+      // 转换JSON格式歌词
+      if (jsonLines.length > 0) {
+        const convertedLrc = jsonLines
+          .map((line) => {
+            const min = Math.floor(line.time / 60)
+            const sec = Math.floor(line.time % 60)
+            const ms = Math.floor((line.time % 1) * 1000)
+            return `[${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}.${String(ms).padStart(3, '0')}]${line.text}`
+          })
+          .join('\n')
+        lrc = [convertedLrc, ...lrcLines].join('\n')
+      } else {
+        lrc = lrcLines.join('\n')
+      }
+
+      // 解析普通歌词 - 支持两位和三位毫秒
+      const lrcParsed = lrc
+        .split('\n')
+        .map((line) => {
+          // 匹配 [00:28.05] 或 [00:28.050] 格式
+          const m = line.match(/\[(\d+):(\d+)\.(\d+)\](.*)/)
+          if (!m) return null
+          const min = parseInt(m[1])
+          const sec = parseInt(m[2])
+          const msStr = m[3].padEnd(3, '0').substring(0, 3) // 确保是3位
+          const ms = parseInt(msStr)
+          const time = min * 60 + sec + ms / 1000
+          const text = m[4].trim() || '♪'
+          return { time, text }
+        })
+        .filter((x): x is { time: number; text: string } => x !== null)
+
+      // 为每行歌词生成模拟的逐字数据
+      for (let i = 0; i < lrcParsed.length; i++) {
+        const currentLine = lrcParsed[i]
+        const nextLine = lrcParsed[i + 1]
+
+        // 计算这行歌词的持续时间（到下一行的时间差）
+        const lineDuration = nextLine
+          ? (nextLine.time - currentLine.time) * 1000 // 转换为毫秒
+          : 3000 // 如果是最后一行，默认3秒
+
+        // 将文本拆分成字符（支持中文、英文、标点）
+        const chars = Array.from(currentLine.text)
+
+        // 如果这行有文字内容，生成逐字数据
+        if (chars.length > 0 && currentLine.text !== '♪') {
+          const words: LyricWord[] = []
+          // 每个字平均分配时间，但保留一些缓冲时间
+          const avgDuration = Math.max(100, Math.floor((lineDuration * 0.8) / chars.length)) // 至少100毫秒
+
+          chars.forEach((char, index) => {
+            words.push({
+              time: currentLine.time * 1000 + index * avgDuration, // 转换为毫秒
+              duration: Math.max(10, Math.floor(avgDuration / 10)), // 转换为厘秒，至少10厘秒
+              text: char
+            })
+          })
+
+          parsedLines.push({
+            time: currentLine.time,
+            duration: lineDuration,
+            text: currentLine.text,
+            words: words
+          })
+        } else {
+          // 空行或音符，不需要逐字
+          parsedLines.push({
+            time: currentLine.time,
+            duration: lineDuration,
+            text: currentLine.text
+          })
+        }
+      }
+    }
+
+    parsedLyrics.value = parsedLines
+
+    // 调试：输出前3行歌词的逐字数据
+    if (parsedLines.length > 0) {
+      console.log(
+        'Parsed lyrics sample:',
+        parsedLines.slice(0, 3).map((line) => ({
+          text: line.text,
+          time: line.time,
+          duration: line.duration,
+          wordsCount: line.words?.length || 0,
+          words: line.words?.map((w) => ({ time: w.time, duration: w.duration, text: w.text }))
+        }))
+      )
+    }
+  } catch (error) {
+    console.error('Failed to load lyrics:', error)
     parsedLyrics.value = []
   }
   saveLastPlaying()
@@ -1854,6 +2087,46 @@ function seekToLyric(time: number): void {
   if (audioRef.value) {
     audioRef.value.currentTime = currentTime.value = time
   }
+}
+
+// 计算歌词进度，用于双层文字方案（使用 clip-path）
+function getLyricProgressWidth(line: LyricLine, lineIndex: number): string {
+  if (currentLyricIndex.value !== lineIndex || !line.words || line.words.length === 0) {
+    return 'inset(0 100% 0 0)'
+  }
+
+  const currentMs = currentTime.value * 1000
+  const words = line.words
+
+  if (currentMs < words[0].time) {
+    return 'inset(0 100% 0 0)'
+  }
+
+  // 第一步：计算总字符数
+  const totalChars = words.reduce((sum, w) => sum + (w.duration * 10 > 0 ? w.text.length : 0), 0)
+
+  // 第二步：计算已完成的字符数
+  let completedChars = 0
+  for (const word of words) {
+    const wordDurationMs = word.duration * 10
+    if (wordDurationMs <= 0) continue
+
+    const wordEndTime = word.time + wordDurationMs
+
+    if (currentMs >= wordEndTime) {
+      completedChars += word.text.length
+    } else if (currentMs >= word.time) {
+      const wordProgress = (currentMs - word.time) / wordDurationMs
+      completedChars += word.text.length * Math.min(1, wordProgress)
+      break
+    } else {
+      break
+    }
+  }
+
+  const progress = totalChars > 0 ? (completedChars / totalChars) * 100 : 0
+  const rightInset = 100 - progress
+  return `inset(0 ${rightInset}% 0 0)`
 }
 
 function setVolume(): void {

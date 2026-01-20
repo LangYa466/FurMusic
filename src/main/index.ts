@@ -7,7 +7,7 @@ import icon from '../../resources/icon.png?asset'
 // 在应用启动前就禁用安全警告
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true'
 
-const LOCAL_VERSION = '1.0.5'
+const LOCAL_VERSION = '1.0.6'
 const VERSION_URL =
   'https://raw.githubusercontent.com/LangYa466/FurMusic/refs/heads/master/version.txt'
 const RELEASES_URL = 'https://github.com/LangYa466/FurMusic/releases/latest'
