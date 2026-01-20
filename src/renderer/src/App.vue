@@ -830,7 +830,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
-import type { Song, Playlist, LyricLine, Artist, ArtistInfo } from './types'
+import type { Song, Playlist, LyricLine, LyricWord, Artist, ArtistInfo } from './types'
 import { qualityLabels, fontLabels, themeColors, defaultSettings } from './constants'
 import { getArtists, formatDuration, formatTime } from './utils/format'
 import './styles/index.css'
