@@ -156,31 +156,20 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
-/* 逐字歌词 - 双层文字方案 */
-.lyric-dual-layer {
-  position: relative;
-  display: inline-block;
+/* 逐字歌词 - 逐字高亮方案 */
+.lyric-word-by-word {
+  display: inline;
 }
 
-.lyric-layer-bottom {
+.lyric-word {
+  display: inline;
   color: rgba(255, 255, 255, 0.4);
+  transition:
+    color 0.1s ease-out,
+    text-shadow 0.1s ease-out;
 }
 
-/* 上层包装器：控制显示宽度 */
-.lyric-layer-top-wrapper {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  clip-path: inset(0 100% 0 0);
-  transition: clip-path 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: clip-path;
-}
-
-/* 上层：亮色文字 */
-.lyric-layer-top {
+.lyric-word.active {
   color: #fff;
   text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
 }

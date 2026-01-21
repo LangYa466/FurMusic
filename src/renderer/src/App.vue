@@ -60,16 +60,14 @@
                 @click="seekToLyric(line.time)"
               >
                 <template v-if="line.words && line.words.length > 0 && currentLyricIndex === i">
-                  <!-- 双层文字方案：用于逐字高亮 -->
-                  <span class="lyric-dual-layer">
-                    <!-- 底层：暗色文字 -->
-                    <span class="lyric-layer-bottom">{{ line.text }}</span>
-                    <!-- 上层：亮色文字，通过clip-path控制显示进度 -->
+                  <!-- 逐字高亮方案：每个字单独渲染 -->
+                  <span class="lyric-word-by-word">
                     <span
-                      class="lyric-layer-top-wrapper"
-                      :style="{ clipPath: getLyricProgressWidth(line, i) }"
+                      v-for="(word, wordIndex) in line.words"
+                      :key="wordIndex"
+                      :class="['lyric-word', { active: isWordActive(word, i) }]"
                     >
-                      <span class="lyric-layer-top">{{ line.text }}</span>
+                      {{ word.text }}
                     </span>
                   </span>
                 </template>
@@ -850,6 +848,7 @@ const currentTime = ref(0)
 const duration = ref(0)
 let audioErrorRetryCount = 0
 let isSkippingFailedSong = false
+let playDirection: 'next' | 'prev' | 'direct' = 'direct' // 记录播放方向
 
 // 日志工具函数
 const logger = {
@@ -942,7 +941,7 @@ const confirmDialog = ref({
 // 消息提示相关
 const showMessage = ref(false)
 const messageText = ref('')
-const messageType = ref<'success' | 'error' | 'info'>('info')
+const messageType = ref<'success' | 'error' | 'info' | 'warning'>('info')
 
 // 右键菜单功能
 function showSongContextMenu(event: MouseEvent, song: Song): void {
@@ -1062,7 +1061,10 @@ function confirmAction(): void {
 }
 
 // 消息提示函数
-function showMessageToast(text: string, type: 'success' | 'error' | 'info' = 'info'): void {
+function showMessageToast(
+  text: string,
+  type: 'success' | 'error' | 'info' | 'warning' = 'info'
+): void {
   messageText.value = text
   messageType.value = type
   showMessage.value = true
@@ -1478,6 +1480,7 @@ function toggleSongSortOrder(): void {
 }
 
 async function playSongFromFiltered(song: Song): Promise<void> {
+  playDirection = 'direct' // 直接点击播放
   // 将播放队列设置为当前歌单的完整歌曲列表（不是过滤后的）
   songs.value = playlistSongs.value
   // 找到歌曲在完整歌单列表中的索引
@@ -1529,6 +1532,7 @@ async function doSearch(): Promise<void> {
 }
 
 async function playSearchSong(song: Song): Promise<void> {
+  playDirection = 'direct' // 直接点击播放
   // 将播放队列设置为搜索结果
   songs.value = searchResults.value
   const index = searchResults.value.findIndex((s) => s.id === song.id)
@@ -1574,6 +1578,7 @@ async function openArtistPage(artist: Artist | undefined): Promise<void> {
 }
 
 async function playArtistSong(song: Song, index: number): Promise<void> {
+  playDirection = 'direct' // 直接点击播放
   // 将播放队列设置为艺人歌曲列表
   songs.value = artistSongs.value
   // 清空当前歌单引用，表示当前播放的是艺人歌曲而非歌单
@@ -1601,6 +1606,7 @@ async function playSong(
   currentSong.value = song
   currentIndex.value = index
   currentLyricIndex.value = -1
+  parsedLyrics.value = [] // 清理旧歌词数据，防止内存泄漏
   audioErrorRetryCount = 0
 
   try {
@@ -1619,18 +1625,38 @@ async function playSong(
         isPlaying.value = false
       }
     } else {
-      // 没有获取到播放地址，自动跳下一首
+      // 没有获取到播放地址，根据播放方向重试
       console.warn('No playable URL for song:', song.name)
       if (autoPlay && songs.value.length > 1) {
-        setTimeout(() => nextSong(), 500)
+        showMessageToast(
+          `无法播放 ${song.name}，正在尝试${playDirection === 'prev' ? '上' : '下'}一首...`,
+          'warning'
+        )
+        setTimeout(() => {
+          if (playDirection === 'prev') {
+            prevSong()
+          } else {
+            nextSong()
+          }
+        }, 500)
         return
       }
     }
   } catch (error) {
     console.error('Failed to get song URL:', error)
-    // 请求失败，自动跳下一首
+    // 请求失败，根据播放方向重试
     if (autoPlay && songs.value.length > 1) {
-      setTimeout(() => nextSong(), 500)
+      showMessageToast(
+        `获取播放地址失败，正在尝试${playDirection === 'prev' ? '上' : '下'}一首...`,
+        'error'
+      )
+      setTimeout(() => {
+        if (playDirection === 'prev') {
+          prevSong()
+        } else {
+          nextSong()
+        }
+      }, 500)
       return
     }
   }
@@ -1867,6 +1893,7 @@ async function playSong(
 
 function playAll(): void {
   if (playlistSongs.value.length === 0) return
+  playDirection = 'direct' // 直接点击播放全部
   // 将播放队列设置为当前歌单的歌曲
   songs.value = playlistSongs.value
   if (playMode.value === 'shuffle') {
@@ -1889,6 +1916,8 @@ function togglePlay(): void {
 
 function prevSong(): void {
   if (songs.value.length === 0) return
+
+  playDirection = 'prev' // 设置播放方向为上一首
 
   let i: number
   if (playMode.value === 'shuffle') {
@@ -1920,6 +1949,8 @@ function nextSong(): void {
     playMode: playMode.value
   })
   if (songs.value.length === 0) return
+
+  playDirection = 'next' // 设置播放方向为下一首
 
   let i: number
   if (playMode.value === 'shuffle') {
@@ -2089,44 +2120,16 @@ function seekToLyric(time: number): void {
   }
 }
 
-// 计算歌词进度，用于双层文字方案（使用 clip-path）
-function getLyricProgressWidth(line: LyricLine, lineIndex: number): string {
-  if (currentLyricIndex.value !== lineIndex || !line.words || line.words.length === 0) {
-    return 'inset(0 100% 0 0)'
+// 判断某个字是否应该高亮（唱过的字保持高亮）
+function isWordActive(word: LyricWord, lineIndex: number): boolean {
+  if (currentLyricIndex.value !== lineIndex) {
+    return false
   }
 
   const currentMs = currentTime.value * 1000
-  const words = line.words
 
-  if (currentMs < words[0].time) {
-    return 'inset(0 100% 0 0)'
-  }
-
-  // 第一步：计算总字符数
-  const totalChars = words.reduce((sum, w) => sum + (w.duration * 10 > 0 ? w.text.length : 0), 0)
-
-  // 第二步：计算已完成的字符数
-  let completedChars = 0
-  for (const word of words) {
-    const wordDurationMs = word.duration * 10
-    if (wordDurationMs <= 0) continue
-
-    const wordEndTime = word.time + wordDurationMs
-
-    if (currentMs >= wordEndTime) {
-      completedChars += word.text.length
-    } else if (currentMs >= word.time) {
-      const wordProgress = (currentMs - word.time) / wordDurationMs
-      completedChars += word.text.length * Math.min(1, wordProgress)
-      break
-    } else {
-      break
-    }
-  }
-
-  const progress = totalChars > 0 ? (completedChars / totalChars) * 100 : 0
-  const rightInset = 100 - progress
-  return `inset(0 ${rightInset}% 0 0)`
+  // 只要当前时间已经到达或超过这个字的开始时间，就高亮
+  return currentMs >= word.time
 }
 
 function setVolume(): void {
