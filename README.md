@@ -1,6 +1,7 @@
 <h1 align="center">毛绒音乐</h1>
 
 <p align="center">极简的网易云第三方播放器 专注于竖屏</p>
+<img width="1200" height="800" alt="image" src="https://api.star-history.com/svg?repos=LangYa466/FurMusic&type=date&legend=top-left)](https://www.star-history.com/#LangYa466/FurMusic&type=date&legend=top-left" />
 
 <p align="center">
 <img width="1200" height="800" alt="image" src="https://github.com/user-attachments/assets/66f8b09e-3014-41aa-b258-65558214c7a3" />
