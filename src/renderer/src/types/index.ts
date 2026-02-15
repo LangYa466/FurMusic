@@ -7,6 +7,7 @@ export interface Artist {
 
 export interface Album {
   picUrl: string
+  name?: string
 }
 
 export interface Song {
