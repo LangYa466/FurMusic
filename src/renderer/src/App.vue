@@ -1621,8 +1621,10 @@ async function playSong(
       if (autoPlay) {
         audioRef.value.play()
         isPlaying.value = true
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'
       } else {
         isPlaying.value = false
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'
       }
     } else {
       // 没有获取到播放地址，根据播放方向重试
@@ -1888,6 +1890,7 @@ async function playSong(
     console.error('Failed to load lyrics:', error)
     parsedLyrics.value = []
   }
+  updateMediaSession()
   saveLastPlaying()
 }
 
@@ -1908,8 +1911,10 @@ function togglePlay(): void {
   if (!audioRef.value) return
   if (isPlaying.value) {
     audioRef.value.pause()
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'
   } else {
     audioRef.value.play()
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'
   }
   isPlaying.value = !isPlaying.value
 }
@@ -1985,6 +1990,7 @@ let lastSaveTime = 0
 function onTimeUpdate(): void {
   if (!audioRef.value) return
   currentTime.value = audioRef.value.currentTime
+  updatePositionState()
   if (currentTime.value - lastSaveTime > 5) {
     lastSaveTime = currentTime.value
     saveLastPlaying()
@@ -2003,6 +2009,7 @@ function onTimeUpdate(): void {
 
 function onLoaded(): void {
   if (audioRef.value) duration.value = audioRef.value.duration
+  updatePositionState()
 }
 
 function onEnded(): void {
@@ -2135,6 +2142,84 @@ function isWordActive(word: LyricWord, lineIndex: number): boolean {
 function setVolume(): void {
   if (audioRef.value) audioRef.value.volume = volume.value
   saveSettings()
+}
+
+// Media Session API 适配
+function updateMediaSession(): void {
+  if (!('mediaSession' in navigator) || !currentSong.value) return
+
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: currentSong.value.name,
+    artist: getArtists(currentSong.value),
+    album: currentSong.value.al?.name || '',
+    artwork: currentSong.value.al?.picUrl
+      ? [{ src: currentSong.value.al.picUrl, sizes: '512x512', type: 'image/jpeg' }]
+      : []
+  })
+
+  navigator.mediaSession.setActionHandler('play', () => {
+    audioRef.value?.play()
+    isPlaying.value = true
+    navigator.mediaSession.playbackState = 'playing'
+  })
+  navigator.mediaSession.setActionHandler('pause', () => {
+    audioRef.value?.pause()
+    isPlaying.value = false
+    navigator.mediaSession.playbackState = 'paused'
+  })
+  navigator.mediaSession.setActionHandler('previoustrack', () => {
+    prevSong()
+  })
+  navigator.mediaSession.setActionHandler('nexttrack', () => {
+    nextSong()
+  })
+  navigator.mediaSession.setActionHandler('stop', () => {
+    if (audioRef.value) {
+      audioRef.value.pause()
+      audioRef.value.currentTime = 0
+    }
+    isPlaying.value = false
+    navigator.mediaSession.playbackState = 'none'
+  })
+  navigator.mediaSession.setActionHandler('seekto', (details) => {
+    if (audioRef.value && details.seekTime != null) {
+      audioRef.value.currentTime = details.seekTime
+      currentTime.value = details.seekTime
+      updatePositionState()
+    }
+  })
+  navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+    if (audioRef.value) {
+      const skipTime = details.seekOffset || 10
+      audioRef.value.currentTime = Math.max(0, audioRef.value.currentTime - skipTime)
+      currentTime.value = audioRef.value.currentTime
+      updatePositionState()
+    }
+  })
+  navigator.mediaSession.setActionHandler('seekforward', (details) => {
+    if (audioRef.value) {
+      const skipTime = details.seekOffset || 10
+      audioRef.value.currentTime = Math.min(
+        duration.value,
+        audioRef.value.currentTime + skipTime
+      )
+      currentTime.value = audioRef.value.currentTime
+      updatePositionState()
+    }
+  })
+}
+
+function updatePositionState(): void {
+  if (!('mediaSession' in navigator) || !duration.value || duration.value <= 0) return
+  try {
+    navigator.mediaSession.setPositionState({
+      duration: duration.value,
+      playbackRate: audioRef.value?.playbackRate || 1,
+      position: Math.min(currentTime.value, duration.value)
+    })
+  } catch {
+    // position > duration 等边界情况可能抛异常，静默忽略
+  }
 }
 
 onMounted(async () => {

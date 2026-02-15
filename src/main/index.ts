@@ -7,7 +7,10 @@ import icon from '../../resources/icon.png?asset'
 // 在应用启动前就禁用安全警告
 process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true'
 
-const LOCAL_VERSION = '1.0.7'
+// 尽早设置 AppUserModelId，确保 Windows SMTC 能正确识别应用
+app.setAppUserModelId('tw.langya.furmusic')
+
+const LOCAL_VERSION = '1.0.8'
 const VERSION_URL =
   'https://raw.githubusercontent.com/LangYa466/FurMusic/refs/heads/master/version.txt'
 const RELEASES_URL = 'https://github.com/LangYa466/FurMusic/releases/latest'
@@ -257,7 +260,31 @@ function createTray(): void {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('tw.langya.furmusic')
+  app.setName('FurMusic')
+
+  // 在 Windows 上创建开始菜单快捷方式，使 Media Session 能正确显示应用名称
+  if (process.platform === 'win32') {
+    const shortcutPath = join(
+      app.getPath('appData'),
+      'Microsoft/Windows/Start Menu/Programs',
+      'FurMusic.lnk'
+    )
+    try {
+      shell.writeShortcutLink(shortcutPath, 'create', {
+        target: process.execPath,
+        appUserModelId: 'tw.langya.furmusic',
+        description: 'FurMusic',
+        icon: is.dev
+          ? join(__dirname, '../../build/icon.ico')
+          : join(process.resourcesPath, 'app.asar.unpacked/build/icon.ico'),
+        iconIndex: 0
+      })
+      console.log('Start Menu shortcut created at:', shortcutPath)
+    } catch (e) {
+      console.error('Failed to create Start Menu shortcut:', e)
+    }
+  }
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
