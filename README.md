@@ -1,6 +1,7 @@
 <h1 align="center">毛绒音乐</h1>
 
 <p align="center">极简的网易云第三方播放器 专注于竖屏</p>
+<p align="center">本项目不再维护 如果想要功能请提PR谢谢 issue不会再处理 我不喜欢网易云了 版权太少了 现在去用AppleMusic的第三方客户端 Cider了</p>
 <img width="1200" height="800" alt="image" src="https://api.star-history.com/svg?repos=LangYa466/FurMusic&type=date&legend=top-left)](https://www.star-history.com/#LangYa466/FurMusic&type=date&legend=top-left" />
 
 <p align="center">
